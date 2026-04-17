@@ -425,6 +425,45 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        align-items: center;
+    }
+    .vol-window-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-2);
+    }
+    .vol-label {
+        font-family: "Consolas", monospace;
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        color: var(--text-2);
+        margin-right: 4px;
+    }
+    .vol-window-selector button {
+        padding: 3px 10px;
+        font-size: 10px;
+    }
+    .vol-window-selector button.active {
+        background: var(--amber);
+        color: var(--bg-0);
+        border-color: var(--amber);
+    }
+    .col-sub {
+        font-size: 9px;
+        color: var(--text-2);
+        font-weight: normal;
+        letter-spacing: 0.5px;
+        text-transform: none;
+        margin-left: 4px;
+    }
+    .sub-qty {
+        font-size: 10px;
+        color: var(--text-2);
+        font-family: "Consolas", monospace;
+        margin-top: 2px;
     }
     /* Alerts banner */
     .alerts-banner {
@@ -663,6 +702,12 @@
         <div class="section-header">
             <div class="section-title">Watched Markets</div>
             <div class="toolbar">
+                <div class="vol-window-selector">
+                    <span class="vol-label">VOLUME WINDOW:</span>
+                    <button data-vol-window="1">1d</button>
+                    <button data-vol-window="7">7d</button>
+                    <button data-vol-window="30">30d</button>
+                </div>
                 <span class="refresh-info" id="lastRefreshInfo"></span>
             </div>
         </div>
@@ -732,9 +777,13 @@ let state = load();
 function load() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (!parsed.volumeWindow) parsed.volumeWindow = 7;
+            return parsed;
+        }
     } catch (e) { console.warn('Load failed', e); }
-    return { markets: [] };
+    return { markets: [], volumeWindow: 7 };
 }
 function save() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1281,20 +1330,26 @@ function makeItem(typeId, typeName, thresholds = {}) {
         priceFloor: thresholds.priceFloor || 0,
         priceCeiling: thresholds.priceCeiling || 0,
         daysSupply: thresholds.daysSupply || 0,
-        // Toggles — default each one on only if a value was provided
-        minStockOn: !!(thresholds.minStock),
-        priceFloorOn: !!(thresholds.priceFloor),
-        priceCeilingOn: !!(thresholds.priceCeiling),
-        daysSupplyOn: !!(thresholds.daysSupply),
+        // Defaults: Min Stock ON, Floor/Ceiling OFF, Target Days ON
+        minStockOn: true,
+        priceFloorOn: false,
+        priceCeilingOn: false,
+        daysSupplyOn: true,
     };
 }
 
 // Migrate older items missing toggle fields (backward-compat with existing watchlists)
 function migrateItem(item) {
-    if (item.minStockOn === undefined) item.minStockOn = (item.minStock || 0) > 0;
-    if (item.priceFloorOn === undefined) item.priceFloorOn = (item.priceFloor || 0) > 0;
-    if (item.priceCeilingOn === undefined) item.priceCeilingOn = (item.priceCeiling || 0) > 0;
-    if (item.daysSupplyOn === undefined) item.daysSupplyOn = (item.daysSupply || 0) > 0;
+    if (item.minStockOn === undefined) item.minStockOn = true;
+    if (item.priceFloorOn === undefined) item.priceFloorOn = false;
+    if (item.priceCeilingOn === undefined) item.priceCeilingOn = false;
+    if (item.daysSupplyOn === undefined) item.daysSupplyOn = true;
+    // Migrate older single dailyVolume field to new triple
+    if (item.dailyVol7 === undefined && item.dailyVolume !== undefined) {
+        item.dailyVol7 = item.dailyVolume;
+        item.dailyVol1 = item.dailyVolume;
+        item.dailyVol30 = item.dailyVolume;
+    }
     return item;
 }
 
@@ -1394,6 +1449,102 @@ function removeItem(marketId, typeId) {
     render();
 }
 
+/* ---------------- Copy/Paste item list between markets ---------------- */
+// Storage: one clipboard slot in localStorage so it survives page navigation.
+const ITEM_CLIPBOARD_KEY = 'eveMarketMonitor.itemClipboard.v1';
+
+async function copyItemsFromMarket(marketId) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market) return;
+    if (market.items.length === 0) {
+        alert('No items to copy.');
+        return;
+    }
+    // Copy only the config, not the computed market data
+    const payload = {
+        source: market.name,
+        copiedAt: Date.now(),
+        items: market.items.map(i => ({
+            typeId: i.typeId,
+            typeName: i.typeName,
+            minStock: i.minStock, minStockOn: !!i.minStockOn,
+            priceFloor: i.priceFloor, priceFloorOn: !!i.priceFloorOn,
+            priceCeiling: i.priceCeiling, priceCeilingOn: !!i.priceCeilingOn,
+            daysSupply: i.daysSupply, daysSupplyOn: !!i.daysSupplyOn,
+        })),
+    };
+    const json = JSON.stringify(payload, null, 2);
+    localStorage.setItem(ITEM_CLIPBOARD_KEY, json);
+    // Also try to put it on the system clipboard for cross-browser/cross-device use
+    try {
+        await navigator.clipboard.writeText(json);
+        alert(`Copied ${payload.items.length} item(s) from ${market.name}.\n\n(Also saved to system clipboard and browser storage — paste into another market with "Paste Items".)`);
+    } catch {
+        alert(`Copied ${payload.items.length} item(s) from ${market.name} to browser storage.\n\n(System clipboard unavailable — use "Paste Items" in another market.)`);
+    }
+}
+
+async function pasteItemsIntoMarket(marketId) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market) return;
+
+    // Try system clipboard first; fall back to localStorage slot
+    let raw = null;
+    try {
+        raw = await navigator.clipboard.readText();
+        // If it doesn't parse, fall back to stored
+        JSON.parse(raw);
+    } catch {
+        raw = localStorage.getItem(ITEM_CLIPBOARD_KEY);
+    }
+    if (!raw) {
+        alert('Nothing to paste. Use "Copy Items" on another market first.');
+        return;
+    }
+
+    let payload;
+    try { payload = JSON.parse(raw); }
+    catch {
+        // Raw text isn't our JSON — maybe it's something else in the clipboard.
+        // Fall back to localStorage.
+        const stored = localStorage.getItem(ITEM_CLIPBOARD_KEY);
+        if (!stored) { alert('Clipboard does not contain a valid item list.'); return; }
+        try { payload = JSON.parse(stored); }
+        catch { alert('Saved clipboard is corrupted.'); return; }
+    }
+    if (!payload.items || !Array.isArray(payload.items)) {
+        alert('Clipboard does not contain a valid item list.');
+        return;
+    }
+
+    let confirmMsg = `Paste ${payload.items.length} item(s)`;
+    if (payload.source) confirmMsg += ` from "${payload.source}"`;
+    confirmMsg += ` into "${market.name}"?\n\nDuplicates will be skipped. Thresholds will be applied from source.`;
+    if (!confirm(confirmMsg)) return;
+
+    let added = 0, skipped = 0;
+    for (const src of payload.items) {
+        if (market.items.find(i => i.typeId === src.typeId)) { skipped++; continue; }
+        market.items.push({
+            typeId: src.typeId,
+            typeName: src.typeName,
+            minStock: src.minStock || 0,
+            priceFloor: src.priceFloor || 0,
+            priceCeiling: src.priceCeiling || 0,
+            daysSupply: src.daysSupply || 0,
+            minStockOn: !!src.minStockOn,
+            priceFloorOn: !!src.priceFloorOn,
+            priceCeilingOn: !!src.priceCeilingOn,
+            daysSupplyOn: !!src.daysSupplyOn,
+        });
+        added++;
+    }
+    save();
+    render();
+    alert(`Added ${added} item(s)${skipped ? `, skipped ${skipped} duplicate(s)` : ''}.`);
+    if (added > 0) refreshMarket(marketId);
+}
+
 function updateItemThresholds(marketId, typeId, field, value) {
     const market = state.markets.find(m => m.id === marketId);
     if (!market) return;
@@ -1409,6 +1560,17 @@ function updateItemThresholds(marketId, typeId, field, value) {
 }
 
 /* ---------------- Refresh market data ---------------- */
+function computeVolumeWindows(history) {
+    // history is the full daily array; return {v1, v7, v30} = average daily volume in each window
+    if (!history || !history.length) return { v1: 0, v7: 0, v30: 0 };
+    const avg = (arr) => arr.length ? Math.round(arr.reduce((s, d) => s + d.volume, 0) / arr.length) : 0;
+    return {
+        v1: avg(history.slice(-1)),
+        v7: avg(history.slice(-7)),
+        v30: avg(history.slice(-30)),
+    };
+}
+
 async function refreshMarket(marketId) {
     const market = state.markets.find(m => m.id === marketId);
     if (!market || market.items.length === 0) return;
@@ -1430,20 +1592,19 @@ async function refreshMarket(marketId) {
                 item.highestBuy = buys.length ? Math.max(...buys.map(o => o.price)) : null;
                 item.sellOrderCount = sells.length;
 
-                // Daily volume from region history (last 7 days average)
+                // Daily volume from region history (compute all three windows)
                 try {
                     const history = await fetchRegionHistory(market.regionId, item.typeId);
-                    const recent = history.slice(-7);
-                    if (recent.length) {
-                        const avg = recent.reduce((s, d) => s + d.volume, 0) / recent.length;
-                        item.dailyVolume = Math.round(avg);
-                    } else {
-                        item.dailyVolume = 0;
-                    }
-                } catch { item.dailyVolume = 0; }
+                    const v = computeVolumeWindows(history);
+                    item.dailyVol1 = v.v1;
+                    item.dailyVol7 = v.v7;
+                    item.dailyVol30 = v.v30;
+                } catch {
+                    item.dailyVol1 = item.dailyVol7 = item.dailyVol30 = 0;
+                }
             }
         } else if (market.type === 'structure') {
-            // Structure markets require auth. Try anyway.
+            // Structure markets require auth.
             const allOrders = await fetchStructureOrders(market.locationId);
             for (const item of market.items) {
                 const itemOrders = allOrders.filter(o => o.type_id === item.typeId);
@@ -1456,9 +1617,13 @@ async function refreshMarket(marketId) {
                 // Fall back to region history for velocity estimate
                 try {
                     const history = await fetchRegionHistory(market.regionId, item.typeId);
-                    const recent = history.slice(-7);
-                    item.dailyVolume = recent.length ? Math.round(recent.reduce((s, d) => s + d.volume, 0) / recent.length) : 0;
-                } catch { item.dailyVolume = 0; }
+                    const v = computeVolumeWindows(history);
+                    item.dailyVol1 = v.v1;
+                    item.dailyVol7 = v.v7;
+                    item.dailyVol30 = v.v30;
+                } catch {
+                    item.dailyVol1 = item.dailyVol7 = item.dailyVol30 = 0;
+                }
             }
         }
         market.lastFetched = Date.now();
@@ -1470,6 +1635,14 @@ async function refreshMarket(marketId) {
         setStatus('Fetch error', 'var(--red)');
         alert(`Failed to refresh ${market.name}: ${e.message}`);
     }
+}
+
+// Helper: return the currently-selected volume window value for an item
+function itemDailyVolume(item) {
+    const window = state.volumeWindow || 7;
+    if (window === 1) return item.dailyVol1 || 0;
+    if (window === 30) return item.dailyVol30 || 0;
+    return item.dailyVol7 || 0;
 }
 
 async function refreshAll() {
@@ -1510,8 +1683,9 @@ function itemStatus(item) {
     }
 
     // Days supply
-    if (item.daysSupplyOn && item.daysSupply > 0 && item.dailyVolume > 0) {
-        const daysLeft = item.totalSellQty / item.dailyVolume;
+    const daily = itemDailyVolume(item);
+    if (item.daysSupplyOn && item.daysSupply > 0 && daily > 0) {
+        const daysLeft = item.totalSellQty / daily;
         if (daysLeft < item.daysSupply) {
             escalate('alert', `${daysLeft.toFixed(1)}d supply < target ${item.daysSupply}d`);
         } else if (daysLeft < item.daysSupply * 1.3) {
@@ -1602,6 +1776,8 @@ function renderMarketCard(market) {
                 <span class="refresh-info">Updated ${fmtTime(market.lastFetched)}</span>
                 <button class="mini-btn" data-refresh="${market.id}">Refresh</button>
                 <button class="mini-btn btn-danger" data-remove-market="${market.id}">Remove</button>
+                <button class="mini-btn" data-copy-items="${market.id}" title="Copy item list (with thresholds) to clipboard">Copy Items</button>
+                <button class="mini-btn" data-paste-items="${market.id}" title="Paste copied items into this market">Paste Items</button>
             </div>
         </div>
         <div class="market-body ${collapsed}">
@@ -1614,33 +1790,41 @@ function renderMarketCard(market) {
 
 function renderItemsTable(market) {
     if (market.items.length === 0) return '<div class="empty-hint">No items tracked. Add one or paste a list below.</div>';
+    const window = state.volumeWindow || 7;
     const rows = market.items.map(item => {
         migrateItem(item);
         const status = itemStatus(item);
-        const daysLeft = (item.dailyVolume > 0 && item.totalSellQty != null)
-            ? (item.totalSellQty / item.dailyVolume).toFixed(1) + 'd' : '—';
+        const daily = itemDailyVolume(item);
+        const daysLeft = (daily > 0 && item.totalSellQty != null)
+            ? (item.totalSellQty / daily).toFixed(1) + 'd' : '—';
         const thresholdCell = (field, value, width) => {
             const onField = field + 'On';
             const isOn = !!item[onField];
             return `<td>
                 <div class="threshold-cell">
                     <button class="toggle-btn ${isOn ? 'on' : 'off'}"
-                            data-toggle="${onField}" data-item="${item.typeId}" data-market="${market.id}"
-                            title="${isOn ? 'Disable' : 'Enable'} this threshold">${isOn ? '●' : '○'}</button>
+                            data-threshold-toggle="${onField}" data-item="${item.typeId}" data-market="${market.id}"
+                            title="${isOn ? 'Disable' : 'Enable'} this threshold">${isOn ? '✓' : '✗'}</button>
                     <input type="number" value="${value}"
                            data-edit="${field}" data-item="${item.typeId}" data-market="${market.id}"
                            class="${isOn ? '' : 'disabled-input'}" style="width:${width};">
                 </div>
             </td>`;
         };
+        // Sell cell: lowest price with qty sub-line; Buy cell: highest price
+        const sellCell = item.lowestSell == null
+            ? '<span style="color:var(--text-2);">—</span>'
+            : `<div>${fmtIsk(item.lowestSell)}</div>
+               <div class="sub-qty">${fmtNum(item.totalSellQty)} @ ${daysLeft}</div>`;
+        const buyCell = item.highestBuy == null
+            ? '<span style="color:var(--text-2);">—</span>'
+            : `<div>${fmtIsk(item.highestBuy)}</div>
+               <div class="sub-qty">${fmtNum(daily)}/d</div>`;
         return `
         <tr class="${status.level}">
             <td class="item-name">${escapeHtml(item.typeName)}</td>
-            <td class="num">${fmtNum(item.totalSellQty)}</td>
-            <td class="num">${fmtIsk(item.lowestSell)}</td>
-            <td class="num">${fmtIsk(item.highestBuy)}</td>
-            <td class="num">${fmtNum(item.dailyVolume)}</td>
-            <td class="num">${daysLeft}</td>
+            <td class="num">${sellCell}</td>
+            <td class="num">${buyCell}</td>
             ${thresholdCell('minStock', item.minStock, '80px')}
             ${thresholdCell('priceFloor', item.priceFloor, '90px')}
             ${thresholdCell('priceCeiling', item.priceCeiling, '90px')}
@@ -1654,15 +1838,12 @@ function renderItemsTable(market) {
         <thead>
             <tr>
                 <th>Item</th>
-                <th class="num">Stock</th>
-                <th class="num">Low Sell</th>
-                <th class="num">High Buy</th>
-                <th class="num">Daily Vol</th>
-                <th class="num">Days Left</th>
+                <th class="num">Sell <span class="col-sub">(low · qty · days)</span></th>
+                <th class="num">Buy <span class="col-sub">(high · vol/${window}d)</span></th>
                 <th>Min Stock</th>
                 <th>Floor</th>
                 <th>Ceiling</th>
-                <th>Tgt Days</th>
+                <th>Tar Days</th>
                 <th>Status</th>
                 <th></th>
             </tr>
@@ -1769,9 +1950,9 @@ function bindMarketCardEvents() {
             });
         });
     });
-    document.querySelectorAll('[data-toggle]').forEach(el => {
+    document.querySelectorAll('[data-threshold-toggle]').forEach(el => {
         el.addEventListener('click', () => {
-            const field = el.getAttribute('data-toggle');
+            const field = el.getAttribute('data-threshold-toggle');
             const marketId = el.getAttribute('data-market');
             const typeId = parseInt(el.getAttribute('data-item'), 10);
             const market = state.markets.find(m => m.id === marketId);
@@ -1781,6 +1962,18 @@ function bindMarketCardEvents() {
             item[field] = !item[field];
             save();
             render();
+        });
+    });
+    document.querySelectorAll('[data-copy-items]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            copyItemsFromMarket(el.getAttribute('data-copy-items'));
+        });
+    });
+    document.querySelectorAll('[data-paste-items]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            pasteItemsIntoMarket(el.getAttribute('data-paste-items'));
         });
     });
     document.querySelectorAll('[data-bulk-add]').forEach(el => {
@@ -2140,6 +2333,24 @@ document.addEventListener('click', (e) => {
 
 /* ---------------- Header buttons ---------------- */
 document.getElementById('refreshAllBtn').addEventListener('click', refreshAll);
+
+// Volume window selector (1d / 7d / 30d)
+document.querySelectorAll('[data-vol-window]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const val = parseInt(btn.getAttribute('data-vol-window'), 10);
+        state.volumeWindow = val;
+        save();
+        render();
+        updateVolWindowUI();
+    });
+});
+function updateVolWindowUI() {
+    const current = state.volumeWindow || 7;
+    document.querySelectorAll('[data-vol-window]').forEach(btn => {
+        const val = parseInt(btn.getAttribute('data-vol-window'), 10);
+        btn.classList.toggle('active', val === current);
+    });
+}
 document.getElementById('exportBtn').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2198,6 +2409,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     const handled = await sso.handleCallback();
     // 2. Render UI (auth state may have just changed)
     updateAuthUI();
+    updateVolWindowUI();
     render();
     setStatus('Idle');
     // 3. Kick off systems index load (cached after first run)
