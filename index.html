@@ -266,6 +266,28 @@
         text-align: center;
         font-style: italic;
     }
+    /* Item autocomplete rows — larger with EVE type icons */
+    .item-autocomplete-results {
+        max-height: 360px;
+    }
+    .autocomplete-item.item-ac-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 10px;
+    }
+    .item-ac-icon {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        background: var(--bg-0);
+        border-radius: 2px;
+    }
+    .item-ac-name {
+        flex: 1;
+        font-size: 12px;
+        color: var(--text-0);
+    }
     /* Market list */
     .market-card {
         background: var(--bg-2);
@@ -367,6 +389,35 @@
         font-size: 12px;
         font-weight: 500;
     }
+    /* Click-to-copy affordance on item names */
+    td.copyable {
+        cursor: pointer;
+        position: relative;
+        user-select: none;
+        transition: color 0.15s;
+    }
+    td.copyable:hover {
+        color: var(--amber);
+    }
+    td.copyable.copied {
+        color: var(--green);
+    }
+    td.copyable.copied::after {
+        content: "✓ copied";
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-family: var(--font-sans);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--green);
+        background: var(--bg-0);
+        padding: 1px 6px;
+        border: 1px solid var(--green);
+        border-radius: 3px;
+        pointer-events: none;
+    }
     /* Zebra striping — applies to "ok" rows only; warn/alert keep their color tint */
     tbody tr:nth-child(even).ok {
         background: rgba(255, 255, 255, 0.025);
@@ -402,7 +453,7 @@
     td.status-cell.status-ok { color: var(--green); }
     td.status-cell.status-restock {
         color: #ffe1e1;
-        background: var(--red);
+        background: rgba(248, 113, 113, 0.28);
     }
     /* Sell Avg and Buy Avg need ~70px minimum to fit "18,200/d" on one line */
     th:nth-child(6), td:nth-child(6),
@@ -1013,6 +1064,7 @@
 
 const STORAGE_KEY = 'eveMarketMonitor.v1';
 const SYSTEMS_CACHE_KEY = 'eveMarketMonitor.systemsCache.v1';
+const ITEMS_CACHE_KEY = 'eveMarketMonitor.itemsCache.v1';
 const SYSTEMS_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days — system list is ultra-stable
 const STRUCTURE_NAMES_KEY = 'eveMarketMonitor.structureNames.v1';
 const SSO_AUTH_KEY = 'eveMarketMonitor.ssoAuth.v1';
@@ -2233,7 +2285,7 @@ function renderItemsTable(market) {
         return `
         <tr class="${status.level} ${locked ? 'row-locked' : ''}">
             <td>${lockBtn}</td>
-            <td class="item-name">${escapeHtml(item.typeName)}</td>
+            <td class="item-name copyable" data-copy-text="${escapeHtml(item.typeName)}" title="Click to copy item name">${escapeHtml(item.typeName)}</td>
             <td class="num ${sellPriceClass}">${sellPrice}</td>
             <td class="num ${sellVolClass}">${sellVol}</td>
             <td class="num ${sellDaysClass}">${sellDays}</td>
@@ -2284,8 +2336,9 @@ function renderAddItemForm(market) {
         <div style="grid-column: 1 / -1;">
             <label>Add Single Item</label>
         </div>
-        <div>
-            <input type="text" placeholder="Item name (e.g. Mechanical Parts)" data-add-field="typeName">
+        <div class="autocomplete">
+            <input type="text" placeholder="Item name (start typing…)" data-add-field="typeName" data-item-autocomplete="${market.id}" autocomplete="off">
+            <div class="autocomplete-results item-autocomplete-results" data-item-results="${market.id}"></div>
         </div>
         <div>
             <input type="number" placeholder="Min Stock" data-add-field="minStock">
@@ -2713,7 +2766,81 @@ function filterSystems(query, limit = 30) {
         else if (idx > 0) contains.push(s);
         if (prefix.length >= limit) break;
     }
-    // Prefix matches first, then contains matches, capped
+    return prefix.concat(contains).slice(0, limit);
+}
+
+/* ---------------- Items index (market-active items, cached) ---------------- */
+// itemsIndex = [{ id, name, lower }] for ~13k market-active items.
+// Source: ESI /markets/prices/ (typeIDs of items with market data) + /universe/names/ (batched resolution).
+// Cached long-term; CCP adds new items maybe once a month.
+let itemsIndex = null;
+let itemsLoading = false;
+const ITEMS_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+async function loadItemsIndex() {
+    try {
+        const raw = localStorage.getItem(ITEMS_CACHE_KEY);
+        if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached.ts && (Date.now() - cached.ts) < ITEMS_CACHE_TTL && Array.isArray(cached.items)) {
+                itemsIndex = cached.items;
+                return;
+            }
+        }
+    } catch {}
+
+    if (itemsLoading) return;
+    itemsLoading = true;
+    setStatus('Loading item index...', 'var(--cyan)');
+
+    try {
+        // 1) Get all market-active type IDs
+        const { data: prices } = await esiGet('/markets/prices/');
+        const typeIds = prices.map(p => p.type_id);
+        // 2) Resolve names in 1000-batches
+        const items = [];
+        for (let i = 0; i < typeIds.length; i += 1000) {
+            const batch = typeIds.slice(i, i + 1000);
+            try {
+                const names = await esiPost('/universe/names/', batch);
+                for (const n of names) {
+                    if (n.category === 'inventory_type') {
+                        items.push({ id: n.id, name: n.name, lower: n.name.toLowerCase() });
+                    }
+                }
+            } catch (e) {
+                console.warn('Item name batch failed', e);
+            }
+            setStatus(`Loading items... ${items.length}/${typeIds.length}`, 'var(--cyan)');
+        }
+        items.sort((a, b) => a.name.localeCompare(b.name));
+        itemsIndex = items;
+        try {
+            localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
+        } catch (e) {
+            // Quota exceeded? Items list alone is ~500KB; should fit but warn if not
+            console.warn('Could not cache items index', e);
+        }
+        setStatus('Idle');
+    } catch (e) {
+        console.error('Items index load failed', e);
+        setStatus('Items load failed', 'var(--red)');
+    } finally {
+        itemsLoading = false;
+    }
+}
+
+function filterItems(query, limit = 20) {
+    if (!itemsIndex) return [];
+    const q = query.toLowerCase();
+    const prefix = [];
+    const contains = [];
+    for (const it of itemsIndex) {
+        const idx = it.lower.indexOf(q);
+        if (idx === 0) prefix.push(it);
+        else if (idx > 0) contains.push(it);
+        if (prefix.length >= limit) break;
+    }
     return prefix.concat(contains).slice(0, limit);
 }
 
@@ -2810,6 +2937,136 @@ document.getElementById('systemInput').addEventListener('keydown', (e) => {
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.autocomplete')) {
         document.getElementById('systemResults').classList.remove('active');
+        // Also close any open item autocomplete dropdowns
+        document.querySelectorAll('.item-autocomplete-results.active').forEach(el => {
+            el.classList.remove('active');
+        });
+    }
+});
+
+/* ---------------- Click-to-copy for item names ---------------- */
+document.addEventListener('click', async (e) => {
+    const cell = e.target.closest('td.copyable');
+    if (!cell) return;
+    const text = cell.getAttribute('data-copy-text');
+    if (!text) return;
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
+        // Fallback for older browsers / non-HTTPS contexts
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch {}
+        document.body.removeChild(ta);
+    }
+    // Visual "copied" flash — 1.2s, then revert
+    cell.classList.add('copied');
+    setTimeout(() => cell.classList.remove('copied'), 1200);
+});
+
+/* ---------------- Item name autocomplete (per market, event-delegated) ---------------- */
+// State keyed by marketId so multiple dropdowns don't interfere
+const itemAcState = {}; // { [marketId]: { matches: [], highlightedIdx: -1 } }
+
+function getItemAcState(marketId) {
+    if (!itemAcState[marketId]) itemAcState[marketId] = { matches: [], highlightedIdx: -1 };
+    return itemAcState[marketId];
+}
+
+function renderItemAutocomplete(marketId, query) {
+    const resultsEl = document.querySelector(`[data-item-results="${marketId}"]`);
+    if (!resultsEl) return;
+    const acs = getItemAcState(marketId);
+    if (!acs.matches.length) {
+        resultsEl.innerHTML = `<div class="autocomplete-empty">No items match "${escapeHtml(query)}"</div>`;
+        resultsEl.classList.add('active');
+        return;
+    }
+    resultsEl.innerHTML = acs.matches.map((m, i) => {
+        const hl = highlightMatch(m.name, query);
+        const icon = `https://images.evetech.net/types/${m.id}/icon?size=32`;
+        return `<div class="autocomplete-item item-ac-row ${i === acs.highlightedIdx ? 'highlighted' : ''}" data-idx="${i}" data-item-name="${escapeHtml(m.name)}" data-market-for="${marketId}">
+            <img class="item-ac-icon" src="${icon}" width="24" height="24" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+            <span class="item-ac-name">${hl}</span>
+        </div>`;
+    }).join('');
+    resultsEl.classList.add('active');
+    resultsEl.querySelectorAll('[data-item-name]').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+            // mousedown (not click) so it fires before input blur
+            e.preventDefault();
+            selectItem(marketId, el.getAttribute('data-item-name'));
+        });
+        el.addEventListener('mouseenter', () => {
+            acs.highlightedIdx = parseInt(el.getAttribute('data-idx'), 10);
+            resultsEl.querySelectorAll('.autocomplete-item').forEach((n, i) => {
+                n.classList.toggle('highlighted', i === acs.highlightedIdx);
+            });
+        });
+    });
+}
+
+function selectItem(marketId, name) {
+    const input = document.querySelector(`[data-item-autocomplete="${marketId}"]`);
+    const resultsEl = document.querySelector(`[data-item-results="${marketId}"]`);
+    if (input) input.value = name;
+    if (resultsEl) resultsEl.classList.remove('active');
+    getItemAcState(marketId).highlightedIdx = -1;
+    if (input) input.focus();
+}
+
+// Event delegation on document — input and keydown fire for dynamically re-rendered inputs
+document.addEventListener('input', (e) => {
+    const input = e.target;
+    if (!input.matches || !input.matches('[data-item-autocomplete]')) return;
+    const marketId = input.getAttribute('data-item-autocomplete');
+    const resultsEl = document.querySelector(`[data-item-results="${marketId}"]`);
+    if (!resultsEl) return;
+    const q = input.value.trim();
+    const acs = getItemAcState(marketId);
+    acs.highlightedIdx = -1;
+    if (q.length < 1) {
+        resultsEl.classList.remove('active');
+        acs.matches = [];
+        return;
+    }
+    if (!itemsIndex) {
+        resultsEl.innerHTML = `<div class="autocomplete-empty">Item index still loading...</div>`;
+        resultsEl.classList.add('active');
+        return;
+    }
+    acs.matches = filterItems(q);
+    renderItemAutocomplete(marketId, q);
+});
+
+document.addEventListener('keydown', (e) => {
+    const input = e.target;
+    if (!input.matches || !input.matches('[data-item-autocomplete]')) return;
+    const marketId = input.getAttribute('data-item-autocomplete');
+    const resultsEl = document.querySelector(`[data-item-results="${marketId}"]`);
+    if (!resultsEl || !resultsEl.classList.contains('active')) return;
+    const acs = getItemAcState(marketId);
+    if (!acs.matches.length) return;
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        acs.highlightedIdx = Math.min(acs.matches.length - 1, acs.highlightedIdx + 1);
+        renderItemAutocomplete(marketId, input.value.trim());
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        acs.highlightedIdx = Math.max(0, acs.highlightedIdx - 1);
+        renderItemAutocomplete(marketId, input.value.trim());
+    } else if (e.key === 'Enter') {
+        if (acs.highlightedIdx >= 0 && acs.matches[acs.highlightedIdx]) {
+            e.preventDefault();
+            selectItem(marketId, acs.matches[acs.highlightedIdx].name);
+        }
+        // else: fall through, let the form's Add button handler catch Enter
+    } else if (e.key === 'Escape') {
+        resultsEl.classList.remove('active');
     }
 });
 
@@ -2903,8 +3160,9 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     updateVolWindowUI();
     render();
     setStatus('Idle');
-    // 3. Kick off systems index load (cached after first run)
+    // 3. Kick off systems and items index loads (cached after first run)
     loadSystemsIndex();
+    loadItemsIndex();
     // 4. If we just logged in, try to proactively resolve any cached-but-unknown
     //    structure names for markets already in the watchlist.
     if (handled && sso.isLoggedIn()) {
