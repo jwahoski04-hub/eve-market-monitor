@@ -365,6 +365,58 @@
         border-right: 1px solid rgba(34, 48, 74, 0.5);
         white-space: nowrap;
     }
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        transition: color 0.12s, background 0.12s;
+    }
+    th.sortable:hover {
+        color: var(--amber);
+        background: rgba(255, 166, 43, 0.06);
+    }
+    th.sortable.sort-active {
+        color: var(--amber);
+        background: rgba(255, 166, 43, 0.10);
+    }
+    th.sortable .sort-arrow {
+        display: inline-block;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        margin-left: 2px;
+        opacity: 0.9;
+    }
+    /* Scrollable items table — activated when >20 items */
+    .items-table-wrap {
+        /* default: no scroll constraint */
+    }
+    .items-table-wrap.scrollable {
+        max-height: 600px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        border: 1px solid var(--border);
+    }
+    .items-table-wrap.scrollable thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--bg-3);
+        /* Sticky headers need the bottom border reinforced because border-collapse eats it */
+        box-shadow: inset 0 -1px 0 var(--border);
+    }
+    /* Custom scrollbar for the scrollable container */
+    .items-table-wrap.scrollable::-webkit-scrollbar {
+        width: 10px;
+    }
+    .items-table-wrap.scrollable::-webkit-scrollbar-track {
+        background: var(--bg-2);
+    }
+    .items-table-wrap.scrollable::-webkit-scrollbar-thumb {
+        background: var(--border-hot);
+        border-radius: 4px;
+    }
+    .items-table-wrap.scrollable::-webkit-scrollbar-thumb:hover {
+        background: var(--amber-dim);
+    }
     td {
         padding: 4px 8px;
         border-bottom: 1px solid var(--border);
@@ -1736,6 +1788,53 @@ function parseMultibuy(text) {
 async function bulkAddItemsToMarket(marketId, text) {
     const market = state.markets.find(m => m.id === marketId);
     if (!market) return;
+
+    // Detect JSON payload from Copy Items (starts with "{" after trim)
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed && Array.isArray(parsed.items)) {
+                const results = { added: [], skipped: [] };
+                for (const src of parsed.items) {
+                    if (!src.typeId || !src.typeName) continue;
+                    if (market.items.find(i => i.typeId === src.typeId)) {
+                        results.skipped.push(src.typeName);
+                        continue;
+                    }
+                    // Preserve full threshold config from the copied payload
+                    market.items.push({
+                        typeId: src.typeId,
+                        typeName: src.typeName,
+                        minStock: src.minStock || 0,
+                        priceFloor: src.priceFloor || 0,
+                        priceCeiling: src.priceCeiling || 0,
+                        daysSupply: src.daysSupply || 0,
+                        minStockOn: !!src.minStockOn,
+                        priceFloorOn: !!src.priceFloorOn,
+                        priceCeilingOn: !!src.priceCeilingOn,
+                        daysSupplyOn: !!src.daysSupplyOn,
+                        locked: false,
+                    });
+                    results.added.push(src.typeName);
+                }
+                save();
+                render();
+                const fromLabel = parsed.source ? ` from ${parsed.source}` : '';
+                const msg = [
+                    `Added: ${results.added.length}${fromLabel} (with thresholds preserved)`,
+                    results.skipped.length ? `Already tracked: ${results.skipped.length}` : null,
+                ].filter(Boolean).join('\n');
+                alert(msg);
+                return;
+            }
+        } catch (e) {
+            // Fall through to multibuy parser — maybe the user pasted malformed JSON-looking text
+            console.warn('JSON parse failed, falling back to multibuy', e);
+        }
+    }
+
+    // Multibuy format: Name[tab]Qty per line (qty is ignored)
     const entries = parseMultibuy(text);
     if (!entries.length) {
         alert('No items parsed from paste.');
@@ -2214,17 +2313,61 @@ function renderItemsTable(market) {
     if (market.items.length === 0) return '<div class="empty-hint">No items tracked. Add one or paste a list below.</div>';
     const window = state.volumeWindow || 7;
     const filter = market._statusFilter || 'all';
-    let visibleCount = 0;
-    const rows = market.items.map(item => {
+    const sortKey = market._sortKey || null; // null = original order
+    const sortDir = market._sortDir || 'asc'; // 'asc' | 'desc'
+
+    // Build a list of {item, computed} for sorting with derived values
+    const rowData = market.items.map(item => {
         migrateItem(item);
         const status = itemStatus(item);
+        const daily = itemDailyVolume(item);
+        const sellDaysVal = (daily > 0 && item.totalSellQty != null) ? (item.totalSellQty / daily) : null;
+        return { item, status, daily, sellDaysVal };
+    });
+
+    // Sort if a sortKey is set. Sorting treats null/undefined as last (regardless of direction).
+    if (sortKey) {
+        const getValue = (r) => {
+            switch (sortKey) {
+                case 'name': return r.item.typeName.toLowerCase();
+                case 'sellPrice': return r.item.lowestSell;
+                case 'sellVol': return r.item.totalSellQty;
+                case 'sellDays': return r.sellDaysVal;
+                case 'sellAvg': return r.daily;
+                case 'buyPrice': return r.item.highestBuy;
+                case 'buyVol': return r.item.totalBuyQty;
+                case 'buyAvg': return r.daily;
+                case 'minStock': return r.item.minStock;
+                case 'priceFloor': return r.item.priceFloor;
+                case 'priceCeiling': return r.item.priceCeiling;
+                case 'daysSupply': return r.item.daysSupply;
+                case 'status':
+                    // Order: alert > warn > ok (so "worst first" when desc)
+                    return r.status.level === 'alert' ? 2 : r.status.level === 'warn' ? 1 : 0;
+                default: return 0;
+            }
+        };
+        rowData.sort((a, b) => {
+            const va = getValue(a), vb = getValue(b);
+            const aNull = va == null || va === '';
+            const bNull = vb == null || vb === '';
+            if (aNull && bNull) return 0;
+            if (aNull) return 1;   // nulls always last
+            if (bNull) return -1;
+            if (typeof va === 'string') {
+                return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+            }
+            return sortDir === 'asc' ? va - vb : vb - va;
+        });
+    }
+
+    let visibleCount = 0;
+    const rows = rowData.map(({ item, status, daily, sellDaysVal }) => {
         // Apply status filter — hide rows that don't match
         if (filter === 'ok' && status.level !== 'ok') return '';
-        if (filter === 'alert' && status.level === 'ok') return ''; // hide OK rows; keep warn + alert
+        if (filter === 'alert' && status.level === 'ok') return '';
         visibleCount++;
-        const daily = itemDailyVolume(item);
-        const daysLeft = (daily > 0 && item.totalSellQty != null)
-            ? (item.totalSellQty / daily).toFixed(1) + 'd' : '—';
+        const daysLeft = sellDaysVal != null ? sellDaysVal.toFixed(1) + 'd' : '—';
         const locked = !!item.locked;
         const thresholdCell = (field, value, width) => {
             const onField = field + 'On';
@@ -2305,32 +2448,46 @@ function renderItemsTable(market) {
             <td>${removeBtn}</td>
         </tr>`;
     }).join('');
+    // Helper for sortable header HTML
+    const sortableTh = (key, label, numClass = false) => {
+        const isActive = sortKey === key;
+        const arrow = isActive ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
+        const cls = `sortable ${isActive ? 'sort-active' : ''} ${numClass ? 'num' : ''}`.trim();
+        return `<th class="${cls}" data-sort-key="${key}" data-market="${market.id}" title="Click to sort">${escapeHtml(label)}<span class="sort-arrow">${arrow}</span></th>`;
+    };
+
+    const shouldScroll = market.items.length > 20;
+    const wrapClass = shouldScroll ? 'items-table-wrap scrollable' : 'items-table-wrap';
+
     return `
+    <div class="${wrapClass}">
     <table>
         <thead>
             <tr>
                 <th></th>
-                <th>Item</th>
-                <th class="num">Sell Price</th>
-                <th class="num">Sell Volume</th>
-                <th class="num">Sell Days</th>
-                <th class="num">Sell Avg</th>
-                <th class="num">Buy Price</th>
-                <th class="num">Buy Volume</th>
-                <th class="num">Buy Avg</th>
-                <th>Min Stock</th>
-                <th>Floor</th>
-                <th>Ceiling</th>
-                <th>Tar Days</th>
-                <th>Status</th>
+                ${sortableTh('name', 'Item')}
+                ${sortableTh('sellPrice', 'Sell Price', true)}
+                ${sortableTh('sellVol', 'Sell Volume', true)}
+                ${sortableTh('sellDays', 'Sell Days', true)}
+                ${sortableTh('sellAvg', 'Sell Avg', true)}
+                ${sortableTh('buyPrice', 'Buy Price', true)}
+                ${sortableTh('buyVol', 'Buy Volume', true)}
+                ${sortableTh('buyAvg', 'Buy Avg', true)}
+                ${sortableTh('minStock', 'Min Stock')}
+                ${sortableTh('priceFloor', 'Floor')}
+                ${sortableTh('priceCeiling', 'Ceiling')}
+                ${sortableTh('daysSupply', 'Tar Days')}
+                ${sortableTh('status', 'Status')}
                 <th></th>
             </tr>
         </thead>
         <tbody>${rows}</tbody>
     </table>
+    </div>
     ${filter !== 'all' && visibleCount < market.items.length
         ? `<div class="filter-note">Filter active — showing ${visibleCount} of ${market.items.length} items</div>`
         : ''}
+    ${shouldScroll ? `<div class="filter-note" style="margin-top:4px;">Scrollable — ${market.items.length} items (scroll within table)</div>` : ''}
     `;
 }
 
@@ -2360,8 +2517,8 @@ function renderAddItemForm(market) {
     </div>
     <div class="bulk-add-row">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label style="margin-bottom:0;">Bulk Add (Multibuy Format)</label>
-            <span class="hint" style="margin-top:0;">Paste from EVE: Item Name [tab] Quantity per line. Quantity is ignored; items are added with no thresholds.</span>
+            <label style="margin-bottom:0;">Bulk Add</label>
+            <span class="hint" style="margin-top:0;">Paste EVE multibuy (Name[tab]Qty per line) OR a Copy Items payload from another station (preserves thresholds).</span>
         </div>
         <div style="display:grid; grid-template-columns:1fr auto; gap:8px; align-items:stretch;">
             <textarea data-bulk-paste="${market.id}" rows="4" placeholder="Mechanical Parts&#9;100&#10;Consumer Electronics&#9;50&#10;Coolant&#9;200"
@@ -2468,6 +2625,27 @@ function bindMarketCardEvents() {
             const cur = market._statusFilter || 'all';
             const next = cur === 'all' ? 'ok' : cur === 'ok' ? 'alert' : 'all';
             market._statusFilter = next;
+            save();
+            render();
+        });
+    });
+    // Sortable column headers: cycle asc → desc → off
+    document.querySelectorAll('th.sortable[data-sort-key]').forEach(el => {
+        el.addEventListener('click', () => {
+            const key = el.getAttribute('data-sort-key');
+            const marketId = el.getAttribute('data-market');
+            const market = state.markets.find(m => m.id === marketId);
+            if (!market) return;
+            if (market._sortKey !== key) {
+                market._sortKey = key;
+                market._sortDir = 'asc';
+            } else if (market._sortDir === 'asc') {
+                market._sortDir = 'desc';
+            } else {
+                // Third click clears sort (original insertion order)
+                market._sortKey = null;
+                market._sortDir = 'asc';
+            }
             save();
             render();
         });
