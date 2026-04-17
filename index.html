@@ -904,6 +904,81 @@
         align-items: center;
     }
     .modal-body { padding: 16px; }
+    /* Help modal — wider, content styled for long-form reading */
+    .modal.help-modal {
+        max-width: 900px;
+    }
+    .help-body {
+        padding: 20px 28px;
+        line-height: 1.55;
+        color: var(--text-1);
+    }
+    .help-body h3 {
+        color: var(--amber);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        margin-top: 22px;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+    }
+    .help-body h3:first-child {
+        margin-top: 0;
+    }
+    .help-body p {
+        margin: 6px 0 10px;
+        color: var(--text-1);
+    }
+    .help-body ol, .help-body ul {
+        margin: 6px 0 12px 22px;
+        padding: 0;
+    }
+    .help-body li {
+        margin-bottom: 6px;
+        color: var(--text-1);
+    }
+    .help-body b {
+        color: var(--text-0);
+        font-weight: 600;
+    }
+    .help-body code {
+        background: var(--bg-0);
+        color: var(--cyan);
+        padding: 1px 5px;
+        border: 1px solid var(--border);
+        font-family: var(--font-mono);
+        font-size: 11px;
+    }
+    .help-btn {
+        display: inline-block;
+        padding: 1px 8px;
+        background: var(--bg-0);
+        border: 1px solid var(--border-hot);
+        color: var(--amber);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+    }
+    .help-status-ok {
+        display: inline-block;
+        padding: 1px 8px;
+        background: var(--bg-0);
+        border: 1px solid var(--green);
+        color: var(--green);
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .help-status-restock {
+        display: inline-block;
+        padding: 1px 8px;
+        background: rgba(248, 113, 113, 0.28);
+        color: #ffe1e1;
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 600;
+    }
     .station-list { list-style: none; }
     .station-list li {
         padding: 10px 12px;
@@ -1043,6 +1118,7 @@
         <button id="refreshAllBtn" class="btn-primary">Refresh All</button>
         <button id="exportBtn">Export</button>
         <button id="importBtn">Import</button>
+        <button id="helpBtn" title="Open user guide">? Help</button>
         <input type="file" id="importFile" accept=".json" style="display:none">
     </div>
 </header>
@@ -1109,6 +1185,99 @@
             <button id="stationModalClose">×</button>
         </div>
         <div class="modal-body" id="stationModalBody"></div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="helpModal">
+    <div class="modal help-modal">
+        <div class="modal-header">
+            <div class="section-title">EVE Market Monitor — Quickstart</div>
+            <button id="helpModalClose">×</button>
+        </div>
+        <div class="modal-body help-body">
+
+            <h3>What this tool does</h3>
+            <p>Monitors supply, demand, and prices for items you care about at specific EVE stations and player structures. It pulls live order data from ESI and flags items that need restocking, are priced outside your target range, or are running low on supply-days. Designed for industrialists, traders, and anyone managing multi-location stockpiles.</p>
+
+            <h3>Getting started</h3>
+            <ol>
+                <li><b>Add a market.</b> In the top section, type a system name (autocomplete will help) and click <span class="help-btn">Find Markets</span>. Pick the station or structure you want to track. Player structures (Upwell/citadels) require EVE SSO login.</li>
+                <li><b>Add items to watch.</b> Each market card has an <b>Add Single Item</b> field with autocomplete — start typing and pick from the dropdown. Or use <b>Bulk Add</b> to paste an EVE multibuy list or a Copy Items payload from another station.</li>
+                <li><b>Set thresholds.</b> Each item row has four thresholds you can toggle: Min Stock, Floor, Ceiling, and Target Days of supply. Toggle on with the green ✓, type a value, and the item turns into an alert if the live market breaks the rule.</li>
+                <li><b>Click <span class="help-btn">Refresh All</span>.</b> Fetches the latest orders and market history. Safe to click often.</li>
+            </ol>
+
+            <h3>Reading the item table</h3>
+            <p>Each item row has 15 columns broken into logical groups separated by thick vertical lines:</p>
+            <ul>
+                <li><b>Sell Price / Sell Volume / Sell Days</b> — the cheapest sell order, total quantity offered at this location, and how many days of supply that represents based on average regional daily trade volume.</li>
+                <li><b>Sell Avg</b> — average daily traded volume over your chosen window (1d / 7d / 30d — toggle at the top right of the page).</li>
+                <li><b>Buy Price / Buy Volume / Buy Avg</b> — highest buy order, total quantity buyers want to purchase, same regional average. Note: Sell Avg and Buy Avg show the same number — ESI doesn't separate buy/sell trading volume in historical data.</li>
+                <li><b>Min Stock / Floor / Ceiling / Tar Days</b> — your four threshold toggles and target values.</li>
+                <li><b>Status</b> — shows <span class="help-status-ok">OK</span> if all your enabled thresholds are met, or <span class="help-status-restock">Restock</span> if anything breaks. Hover for the exact reason.</li>
+            </ul>
+
+            <h3>Visual alerts</h3>
+            <ul>
+                <li><b>Faint red row tint</b> — the item has at least one broken threshold (broad "needs attention" signal).</li>
+                <li><b>Bright red cell</b> — the specific metric that triggered the alert. E.g., if Min Stock is set to 500 and Sell Volume is 120, the Sell Volume cell is highlighted red.</li>
+                <li><b>Faint yellow row tint</b> — approaching a threshold but not yet in violation ("warning").</li>
+                <li><b>Row hover</b> — amber glow to help track rows across 15 columns.</li>
+            </ul>
+
+            <h3>Per-item controls</h3>
+            <ul>
+                <li><b>🔒 Lock row</b> — prevents accidental edits to that item's thresholds. Lock the row, and the toggles and inputs all disable.</li>
+                <li><b>✓ / ✗ toggle next to each threshold</b> — enables or disables that rule without losing the value.</li>
+                <li><b>✕ Remove</b> — deletes the item from this market.</li>
+                <li><b>Click item name</b> — copies the name to clipboard with a green "✓ copied" badge, so you can paste into EVE's market search or a shopping list.</li>
+            </ul>
+
+            <h3>Per-station controls</h3>
+            <ul>
+                <li><b>🔒 Lock all</b> (far left of Station Globals bar) — locks or unlocks every row in one click.</li>
+                <li><b>Station Globals toggles</b> — stamp a threshold state across all unlocked items at once. Useful when setting up a new market ("enable Min Stock on everything").</li>
+                <li><b>Status filter slider</b> (right side of globals bar) — cycle All → OK only → Alerts only. Hides non-matching rows.</li>
+                <li><b>Refresh</b> — fetches data for this one market.</li>
+                <li><b>Copy Items</b> — copies the full item list with all thresholds as JSON. Paste into Bulk Add on another station to replicate the setup.</li>
+                <li><b>Remove</b> — deletes the market from your watchlist.</li>
+                <li><b>Click station name</b> — collapses or expands the card.</li>
+            </ul>
+
+            <h3>Sorting and scrolling</h3>
+            <ul>
+                <li><b>Click any column header</b> to sort ascending (↑), click again for descending (↓), click a third time to clear sort. Items without data sort to the bottom.</li>
+                <li><b>Stations with more than 20 items</b> automatically get a scrollable table with a sticky header, so column labels stay visible as you scroll.</li>
+            </ul>
+
+            <h3>Volume window</h3>
+            <p>Top-right of the page has a <b>1d / 7d / 30d</b> toggle that controls which average is used for <b>Sell Days</b> and <b>Sell Avg / Buy Avg</b>. Short window reacts faster to demand spikes; long window smooths out noise. 7d is usually the right default.</p>
+
+            <h3>Keeping data fresh</h3>
+            <p>Nothing auto-refreshes. Click <b>Refresh All</b> or a single station's <b>Refresh</b> when you want current numbers. EVE's market data updates on the server every few minutes, so refreshing more often than that gains nothing.</p>
+
+            <h3>Backup and sharing</h3>
+            <ul>
+                <li><b>Export</b> — downloads a JSON file with all your markets and thresholds. Keep this as a backup.</li>
+                <li><b>Import</b> — restores from an exported file. Overwrites your current list after confirmation.</li>
+                <li><b>Copy Items / Bulk Add</b> — quick way to propagate the same item list and thresholds across multiple stations.</li>
+            </ul>
+
+            <h3>Privacy and data</h3>
+            <p>Everything stays in your browser's localStorage. Nothing is sent to any server except CCP's ESI (for market data) and Google Fonts (for the Inter font). If you log in with EVE SSO for structure markets, the token is stored in your browser only and used only to call ESI directly.</p>
+
+            <h3>Troubleshooting</h3>
+            <ul>
+                <li><b>Structure shows "No access" or "Login for name"</b> — you need to be logged in with a character that has docking access to read that structure's name or market. Click <b>Log In with EVE</b> in the header.</li>
+                <li><b>Item autocomplete shows "still loading"</b> — on first page visit, the tool fetches ~13,000 market-active item names (takes about 10–15 seconds). After that it's cached for 30 days.</li>
+                <li><b>Min Stock toggle defaults to off on old items</b> — after the v2 schema update, existing items should auto-flip to on. If yours didn't, toggle it manually.</li>
+                <li><b>Refresh seems slow</b> — stations with many items take longer because each item requires its own ESI history fetch. Structure markets pull all orders in one call and are usually faster.</li>
+            </ul>
+
+            <h3>Credits</h3>
+            <p>Built by Jason for personal use. Uses public ESI endpoints from CCP Games. Item icons from <code>images.evetech.net</code>. No warranty, no affiliation with CCP. EVE Online is a trademark of CCP hf.</p>
+
+        </div>
     </div>
 </div>
 
@@ -3254,6 +3423,26 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------------- Header buttons ---------------- */
 document.getElementById('refreshAllBtn').addEventListener('click', refreshAll);
+
+// Help modal
+document.getElementById('helpBtn').addEventListener('click', () => {
+    document.getElementById('helpModal').classList.add('active');
+});
+document.getElementById('helpModalClose').addEventListener('click', () => {
+    document.getElementById('helpModal').classList.remove('active');
+});
+document.getElementById('helpModal').addEventListener('click', (e) => {
+    // Close on backdrop click (not when clicking inside the modal)
+    if (e.target.id === 'helpModal') {
+        document.getElementById('helpModal').classList.remove('active');
+    }
+});
+// Escape to close
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('helpModal').classList.contains('active')) {
+        document.getElementById('helpModal').classList.remove('active');
+    }
+});
 
 // Volume window selector (1d / 7d / 30d)
 document.querySelectorAll('[data-vol-window]').forEach(btn => {
