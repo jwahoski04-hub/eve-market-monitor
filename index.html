@@ -396,19 +396,19 @@
         flex-shrink: 0;
     }
     .toggle-btn.on {
-        background: var(--amber);
+        background: var(--green);
         color: var(--bg-0);
-        border-color: var(--amber);
+        border-color: var(--green);
     }
     .toggle-btn.on:hover {
-        background: #ffb849;
+        background: #65e89a;
     }
     .toggle-btn.off {
         color: var(--text-2);
     }
     .toggle-btn.off:hover {
-        color: var(--amber);
-        border-color: var(--amber);
+        color: var(--green);
+        border-color: var(--green);
     }
     .disabled-input {
         opacity: 0.4;
@@ -510,19 +510,19 @@
         margin-right: 2px;
     }
     .market-globals button.on {
-        background: var(--amber);
+        background: var(--green);
         color: var(--bg-0);
-        border-color: var(--amber);
+        border-color: var(--green);
     }
     .market-globals button.on:hover {
-        background: #ffb849;
+        background: #65e89a;
     }
     .market-globals button.off {
         color: var(--text-2);
     }
     .market-globals button.off:hover {
-        color: var(--amber);
-        border-color: var(--amber);
+        color: var(--green);
+        border-color: var(--green);
     }
     .market-globals button.mixed {
         border-color: var(--yellow);
@@ -560,6 +560,95 @@
         border-color: var(--cyan);
         color: var(--cyan);
         background: rgba(74, 214, 255, 0.15);
+    }
+    /* Station-level lock button — slightly larger to stand out */
+    .lock-btn.station-lock {
+        width: 30px;
+        height: 30px;
+        font-size: 15px;
+        margin-right: 4px;
+    }
+    /* Tri-state status filter slider: all (center/gray) / ok (left/green) / alert (right/red) */
+    .status-filter-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px 4px 6px;
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        letter-spacing: 1px;
+        transition: all 0.15s;
+    }
+    .status-filter-btn .slider-track {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 16px;
+        background: linear-gradient(
+            90deg,
+            var(--green) 0%,
+            var(--green) 30%,
+            var(--text-2) 40%,
+            var(--text-2) 60%,
+            var(--red) 70%,
+            var(--red) 100%
+        );
+        border-radius: 8px;
+        opacity: 0.35;
+    }
+    .status-filter-btn .slider-thumb {
+        position: absolute;
+        top: 1px;
+        width: 14px;
+        height: 14px;
+        background: var(--text-0);
+        border: 1px solid var(--bg-0);
+        border-radius: 50%;
+        transition: left 0.2s ease, background 0.2s;
+    }
+    .status-filter-btn.filter-ok .slider-thumb {
+        left: 1px;
+        background: var(--green);
+    }
+    .status-filter-btn.filter-ok .slider-track {
+        opacity: 1;
+    }
+    .status-filter-btn.filter-ok .filter-label {
+        color: var(--green);
+    }
+    .status-filter-btn.filter-all .slider-thumb {
+        left: 15px;
+        background: var(--text-1);
+    }
+    .status-filter-btn.filter-alert .slider-thumb {
+        left: 29px;
+        background: var(--red);
+    }
+    .status-filter-btn.filter-alert .slider-track {
+        opacity: 1;
+    }
+    .status-filter-btn.filter-alert .filter-label {
+        color: var(--red);
+    }
+    .status-filter-btn .filter-label {
+        min-width: 80px;
+        text-align: left;
+    }
+    .status-filter-btn:hover {
+        border-color: var(--amber);
+    }
+    .filter-note {
+        padding: 8px 10px;
+        background: var(--bg-3);
+        border: 1px dashed var(--border);
+        color: var(--text-2);
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+        text-align: center;
+        margin-top: 6px;
     }
     /* Locked row styling — muted but still readable */
     tr.row-locked td:not(:first-child) {
@@ -1474,6 +1563,24 @@ function migrateItem(item) {
     return item;
 }
 
+// One-time upgrade: old items were created with minStockOn/daysSupplyOn
+// set to false whenever the value was 0. The new default is ON regardless.
+// Bumping the schema version flips those false→true once, then never again.
+const SCHEMA_VERSION = 2;
+function applyOneTimeSchemaUpgrade() {
+    if ((state.schemaVersion || 1) >= SCHEMA_VERSION) return;
+    for (const m of state.markets) {
+        for (const it of m.items) {
+            // Only flip if user hasn't explicitly locked the row (suggests intentional config)
+            if (it.locked) continue;
+            if (it.minStockOn === false && (it.minStock || 0) === 0) it.minStockOn = true;
+            if (it.daysSupplyOn === false && (it.daysSupply || 0) === 0) it.daysSupplyOn = true;
+        }
+    }
+    state.schemaVersion = SCHEMA_VERSION;
+    save();
+}
+
 /* ---------------- Bulk add via multibuy paste ---------------- */
 // Parses EVE multibuy format: "Item Name\tQuantity" per line.
 // Also tolerates comma separators or name-only lines.
@@ -1711,9 +1818,11 @@ async function refreshMarket(marketId) {
                 const buys = localOrders.filter(o => o.is_buy_order);
 
                 item.totalSellQty = sells.reduce((sum, o) => sum + o.volume_remain, 0);
+                item.totalBuyQty = buys.reduce((sum, o) => sum + o.volume_remain, 0);
                 item.lowestSell = sells.length ? Math.min(...sells.map(o => o.price)) : null;
                 item.highestBuy = buys.length ? Math.max(...buys.map(o => o.price)) : null;
                 item.sellOrderCount = sells.length;
+                item.buyOrderCount = buys.length;
 
                 // Daily volume from region history (compute all three windows)
                 try {
@@ -1734,9 +1843,11 @@ async function refreshMarket(marketId) {
                 const sells = itemOrders.filter(o => !o.is_buy_order);
                 const buys = itemOrders.filter(o => o.is_buy_order);
                 item.totalSellQty = sells.reduce((sum, o) => sum + o.volume_remain, 0);
+                item.totalBuyQty = buys.reduce((sum, o) => sum + o.volume_remain, 0);
                 item.lowestSell = sells.length ? Math.min(...sells.map(o => o.price)) : null;
                 item.highestBuy = buys.length ? Math.max(...buys.map(o => o.price)) : null;
                 item.sellOrderCount = sells.length;
+                item.buyOrderCount = buys.length;
                 // Fall back to region history for velocity estimate
                 try {
                     const history = await fetchRegionHistory(market.regionId, item.typeId);
@@ -1942,18 +2053,48 @@ function renderMarketGlobalsBar(market) {
             <span class="mark">${mark}</span> ${f.label}
         </button>`;
     }).join('');
+    // Station-level lock: locked if ALL items are locked; unlocked if ANY item is unlocked
+    const totalItems = market.items.length;
+    const lockedAllCount = market.items.filter(it => it.locked).length;
+    const allLocked = totalItems > 0 && lockedAllCount === totalItems;
+    const lockAllBtn = `<button class="lock-btn station-lock ${allLocked ? 'locked' : 'unlocked'}"
+        data-lock-all="${market.id}"
+        title="${allLocked ? 'Unlock all rows' : 'Lock all rows'} (${lockedAllCount}/${totalItems} currently locked)">${allLocked ? '🔒' : '🔓'}</button>`;
+
+    // Status filter tri-state: all / ok / alert
+    const filter = market._statusFilter || 'all';
+    const filterLabel = filter === 'all' ? 'ALL' : filter === 'ok' ? 'OK ONLY' : 'ALERTS ONLY';
+    const filterBtn = `<button class="status-filter-btn filter-${filter}"
+        data-status-filter="${market.id}"
+        title="Click to cycle: All → OK only → Alerts only">
+        <span class="slider-track">
+            <span class="slider-thumb"></span>
+        </span>
+        <span class="filter-label">${filterLabel}</span>
+    </button>`;
+
     return `<div class="market-globals">
+        ${lockAllBtn}
         <span class="vol-label">STATION GLOBALS:</span>
         ${btns}
+        <span style="flex:1;"></span>
+        <span class="vol-label">STATUS:</span>
+        ${filterBtn}
     </div>`;
 }
 
 function renderItemsTable(market) {
     if (market.items.length === 0) return '<div class="empty-hint">No items tracked. Add one or paste a list below.</div>';
     const window = state.volumeWindow || 7;
+    const filter = market._statusFilter || 'all';
+    let visibleCount = 0;
     const rows = market.items.map(item => {
         migrateItem(item);
         const status = itemStatus(item);
+        // Apply status filter — hide rows that don't match
+        if (filter === 'ok' && status.level !== 'ok') return '';
+        if (filter === 'alert' && status.level === 'ok') return ''; // hide OK rows; keep warn + alert
+        visibleCount++;
         const daily = itemDailyVolume(item);
         const daysLeft = (daily > 0 && item.totalSellQty != null)
             ? (item.totalSellQty / daily).toFixed(1) + 'd' : '—';
@@ -1975,7 +2116,12 @@ function renderItemsTable(market) {
                 </div>
             </td>`;
         };
-        // Sell Price, Sell Volume (qty + days), Buy (unchanged: price + vol/d)
+        // Six market columns: Sell Price | Sell Volume (stock at station) | Sell Avg (regional daily trade)
+        //                     Buy Price  | Buy Volume (demand at station) | Buy Avg (same as Sell Avg)
+        // Note: Sell Avg and Buy Avg both come from the same /markets/history endpoint —
+        // ESI doesn't split historical trading volume by order type. So both columns show
+        // the same daily-traded figure for the selected window. They're shown separately
+        // for layout symmetry and to make runway calculations easy to read per side.
         const sellPrice = item.lowestSell == null
             ? '<span style="color:var(--text-2);">—</span>'
             : fmtIsk(item.lowestSell);
@@ -1983,10 +2129,16 @@ function renderItemsTable(market) {
             ? '<span style="color:var(--text-2);">—</span>'
             : `<div>${fmtNum(item.totalSellQty)}</div>
                <div class="sub-qty">${daysLeft}</div>`;
-        const buyCell = item.highestBuy == null
+        const sellAvg = daily > 0
+            ? `${fmtNum(daily)}/d`
+            : '<span style="color:var(--text-2);">—</span>';
+        const buyPrice = item.highestBuy == null
             ? '<span style="color:var(--text-2);">—</span>'
-            : `<div>${fmtIsk(item.highestBuy)}</div>
-               <div class="sub-qty">${fmtNum(daily)}/d</div>`;
+            : fmtIsk(item.highestBuy);
+        const buyVol = item.totalBuyQty == null
+            ? '<span style="color:var(--text-2);">—</span>'
+            : fmtNum(item.totalBuyQty);
+        const buyAvg = sellAvg; // same regional figure — see note above
         const lockBtn = `<button class="lock-btn ${locked ? 'locked' : 'unlocked'}"
                             data-lock-item="${market.id}|${item.typeId}"
                             title="${locked ? 'Unlock row' : 'Lock row (prevents changes)'}">${locked ? '🔒' : '🔓'}</button>`;
@@ -1999,7 +2151,10 @@ function renderItemsTable(market) {
             <td class="item-name">${escapeHtml(item.typeName)}</td>
             <td class="num">${sellPrice}</td>
             <td class="num">${sellVol}</td>
-            <td class="num">${buyCell}</td>
+            <td class="num">${sellAvg}</td>
+            <td class="num">${buyPrice}</td>
+            <td class="num">${buyVol}</td>
+            <td class="num">${buyAvg}</td>
             ${thresholdCell('minStock', item.minStock, '80px')}
             ${thresholdCell('priceFloor', item.priceFloor, '90px')}
             ${thresholdCell('priceCeiling', item.priceCeiling, '90px')}
@@ -2016,7 +2171,10 @@ function renderItemsTable(market) {
                 <th>Item</th>
                 <th class="num">Sell Price</th>
                 <th class="num">Sell Volume <span class="col-sub">(qty · days)</span></th>
-                <th class="num">Buy <span class="col-sub">(price · vol/${window}d)</span></th>
+                <th class="num">Sell Avg <span class="col-sub">(${window}d)</span></th>
+                <th class="num">Buy Price</th>
+                <th class="num">Buy Volume</th>
+                <th class="num">Buy Avg <span class="col-sub">(${window}d)</span></th>
                 <th>Min Stock</th>
                 <th>Floor</th>
                 <th>Ceiling</th>
@@ -2027,6 +2185,9 @@ function renderItemsTable(market) {
         </thead>
         <tbody>${rows}</tbody>
     </table>
+    ${filter !== 'all' && visibleCount < market.items.length
+        ? `<div class="filter-note">Filter active — showing ${visibleCount} of ${market.items.length} items</div>`
+        : ''}
     `;
 }
 
@@ -2137,6 +2298,32 @@ function bindMarketCardEvents() {
             const item = market.items.find(i => i.typeId === typeId);
             if (!item || item.locked) return;
             item[field] = !item[field];
+            save();
+            render();
+        });
+    });
+    // Station-level lock-all toggle
+    document.querySelectorAll('[data-lock-all]').forEach(el => {
+        el.addEventListener('click', () => {
+            const marketId = el.getAttribute('data-lock-all');
+            const market = state.markets.find(m => m.id === marketId);
+            if (!market || !market.items.length) return;
+            const allLocked = market.items.every(it => it.locked);
+            const newState = !allLocked;
+            for (const it of market.items) it.locked = newState;
+            save();
+            render();
+        });
+    });
+    // Status filter tri-state cycle: all → ok → alert → all
+    document.querySelectorAll('[data-status-filter]').forEach(el => {
+        el.addEventListener('click', () => {
+            const marketId = el.getAttribute('data-status-filter');
+            const market = state.markets.find(m => m.id === marketId);
+            if (!market) return;
+            const cur = market._statusFilter || 'all';
+            const next = cur === 'all' ? 'ok' : cur === 'ok' ? 'alert' : 'all';
+            market._statusFilter = next;
             save();
             render();
         });
@@ -2622,7 +2809,9 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 (async () => {
     // 1. Handle OAuth callback if we just came back from login.eveonline.com
     const handled = await sso.handleCallback();
-    // 2. Render UI (auth state may have just changed)
+    // 2. One-time schema upgrade (flips stale false→true defaults)
+    applyOneTimeSchemaUpgrade();
+    // 3. Render UI (auth state may have just changed)
     updateAuthUI();
     updateVolWindowUI();
     render();
