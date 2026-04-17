@@ -942,27 +942,31 @@
         list-style: none;
         padding: 2px 0;
     }
-    /* Big Red Button — restock list copy */
+    /* Big Red Button — restock list copy.
+       Flex column so the SVG, COPY RESTOCK label, and Kai's Button signature
+       stack cleanly inside the red alerts banner with no overflow. */
     .brb-wrap {
         flex-shrink: 0;
         width: 120px;
-        height: 148px; /* 120 button + ~28 for signature below */
         cursor: pointer;
         user-select: none;
         display: flex;
-        align-items: flex-start;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 2px;
         transition: transform 0.08s ease-out, filter 0.15s;
         outline: none;
         position: relative;
     }
+    .brb-wrap svg { display: block; }
     .brb-wrap:hover { transform: scale(1.04); filter: drop-shadow(0 0 12px rgba(248, 113, 113, 0.5)); }
     .brb-wrap:focus-visible { filter: drop-shadow(0 0 14px rgba(74, 214, 255, 0.7)); }
     .brb-wrap:active .brb-group { transform: translateY(3px) scale(0.98); transform-origin: 160px 170px; }
     .brb-wrap.copied::after {
         content: "✓ copied to clipboard";
         position: absolute;
-        top: 50%;
+        top: 40%;
         left: 50%;
         transform: translate(-50%, -50%);
         font-family: var(--font-sans);
@@ -979,33 +983,27 @@
     }
     .brb-group { transition: transform 0.08s ease-out; }
     .brb-label {
-        position: absolute;
-        bottom: -2px;
-        left: 50%;
-        transform: translateX(-50%);
         font-family: "Consolas", monospace;
         font-size: 9px;
         letter-spacing: 1.5px;
         color: var(--text-2);
         white-space: nowrap;
         pointer-events: none;
+        line-height: 1;
     }
-    /* "Kai's Button" signature — appears after the button is pressed,
-       with an animated rainbow gradient slowly flowing across the letters. */
+    /* "Kai's Button" signature — fades in when the button is pressed,
+       shows a flowing rainbow gradient, then fades out after ~10s. */
     .brb-signature {
-        position: absolute;
-        bottom: -22px;
-        left: 50%;
-        transform: translateX(-50%);
         font-family: "Inter", sans-serif;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 700;
         font-style: italic;
         letter-spacing: 0.5px;
         white-space: nowrap;
         pointer-events: none;
+        line-height: 1.1;
         opacity: 0;
-        transition: opacity 0.3s ease-out;
+        transition: opacity 0.4s ease-out;
         background: linear-gradient(
             90deg,
             #ff3b2a 0%,
@@ -1023,6 +1021,8 @@
         color: transparent;
         text-shadow: 0 0 18px rgba(255, 255, 255, 0.15);
         animation: brb-rainbow-flow 3s linear infinite;
+        /* Reserve vertical space even when hidden so the layout doesn't jump on press */
+        height: 14px;
     }
     .brb-wrap.signed .brb-signature {
         opacity: 1;
@@ -2677,6 +2677,14 @@ async function copyRestockList() {
         : '';
     btn.setAttribute('title', `Copied ${uniqueItems} item(s)${suffix} — paste into Janice or EVE multibuy`);
     setTimeout(() => btn.classList.remove('copied'), 1500);
+
+    // Hide "Kai's Button" signature after 10 seconds. Clear any prior timer
+    // so rapid re-clicks reset the countdown instead of stacking.
+    if (window.__brbSignatureTimer) clearTimeout(window.__brbSignatureTimer);
+    window.__brbSignatureTimer = setTimeout(() => {
+        btn.classList.remove('signed');
+        window.__brbSignatureTimer = null;
+    }, 10000);
 }
 
 /* ---------------- Formatting helpers ---------------- */
