@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EVE Market Monitor</title>
+<style>
+    :root {
+        --bg-0: #07090d;
+        --bg-1: #0d1117;
+        --bg-2: #141b25;
+        --bg-3: #1a2332;
+        --border: #22304a;
+        --border-hot: #3a5580;
+        --text-0: #e8eef7;
+        --text-1: #a8b5c8;
+        --text-2: #6b7a90;
+        --amber: #ffa62b;
+        --amber-dim: #8a5a14;
+        --cyan: #4ad6ff;
+        --cyan-dim: #1a6b85;
+        --green: #4ade80;
+        --red: #f87171;
+        --yellow: #fbbf24;
+        --purple: #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        background: var(--bg-0);
+        color: var(--text-0);
+        font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+        font-size: 13px;
+        min-height: 100vh;
+        background-image:
+            radial-gradient(circle at 20% 10%, rgba(74, 214, 255, 0.04), transparent 40%),
+            radial-gradient(circle at 80% 80%, rgba(255, 166, 43, 0.04), transparent 40%);
+    }
+    .app-header {
+        border-bottom: 1px solid var(--border);
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+    }
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .brand-mark {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--amber);
+        transform: rotate(45deg);
+        position: relative;
+    }
+    .brand-mark::before {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        background: var(--amber);
+        opacity: 0.3;
+    }
+    .brand-title {
+        font-family: "Consolas", "Monaco", monospace;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 3px;
+        color: var(--text-0);
+    }
+    .brand-title span { color: var(--amber); }
+    .brand-sub {
+        font-family: "Consolas", "Monaco", monospace;
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--text-2);
+        margin-top: 2px;
+    }
+    .header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 8px var(--green);
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+    }
+    .status-text {
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        color: var(--text-2);
+        letter-spacing: 1px;
+    }
+    .auth-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 4px 4px 10px;
+        border: 1px solid var(--cyan-dim);
+        background: rgba(74, 214, 255, 0.06);
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+        color: var(--cyan);
+        letter-spacing: 0.5px;
+    }
+    .auth-pill button {
+        padding: 2px 6px;
+        font-size: 11px;
+        line-height: 1;
+        border-color: var(--cyan-dim);
+        color: var(--text-2);
+    }
+    .auth-pill button:hover {
+        border-color: var(--red);
+        color: var(--red);
+        background: transparent;
+    }
+    .container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .section {
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        margin-bottom: 16px;
+    }
+    .section-header {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(90deg, var(--bg-2), transparent);
+    }
+    .section-title {
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--amber);
+        text-transform: uppercase;
+    }
+    .section-body { padding: 16px; }
+    button, .btn {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        color: var(--text-0);
+        padding: 6px 14px;
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    button:hover, .btn:hover {
+        border-color: var(--amber);
+        color: var(--amber);
+        background: var(--bg-3);
+    }
+    button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .btn-primary {
+        background: var(--amber);
+        color: var(--bg-0);
+        border-color: var(--amber);
+        font-weight: 600;
+    }
+    .btn-primary:hover {
+        background: #ffb849;
+        color: var(--bg-0);
+    }
+    .btn-danger:hover {
+        border-color: var(--red);
+        color: var(--red);
+    }
+    input, select {
+        background: var(--bg-0);
+        border: 1px solid var(--border);
+        color: var(--text-0);
+        padding: 6px 10px;
+        font-family: "Consolas", monospace;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    input:focus, select:focus {
+        border-color: var(--amber);
+    }
+    label {
+        display: block;
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: var(--text-2);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+    /* Add-market form */
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: end;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+    }
+    .autocomplete {
+        position: relative;
+    }
+    .autocomplete-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-2);
+        border: 1px solid var(--border-hot);
+        border-top: none;
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 100;
+        display: none;
+    }
+    .autocomplete-results.active { display: block; }
+    .autocomplete-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .autocomplete-item:hover, .autocomplete-item.highlighted {
+        background: var(--bg-3);
+        color: var(--amber);
+    }
+    .autocomplete-item-sub {
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        color: var(--text-2);
+    }
+    .autocomplete-empty {
+        padding: 12px;
+        color: var(--text-2);
+        font-size: 11px;
+        text-align: center;
+        font-style: italic;
+    }
+    /* Market list */
+    .market-card {
+        background: var(--bg-2);
+        border: 1px solid var(--border);
+        margin-bottom: 10px;
+    }
+    .market-card-header {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .market-card-header:hover { background: var(--bg-3); }
+    .market-name {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-0);
+    }
+    .market-system {
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        color: var(--cyan);
+        margin-top: 2px;
+        letter-spacing: 1px;
+    }
+    .market-meta {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+    }
+    .market-badge {
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        color: var(--text-1);
+        letter-spacing: 1px;
+    }
+    .market-badge.structure {
+        border-color: var(--purple);
+        color: var(--purple);
+    }
+    .market-badge.station {
+        border-color: var(--cyan-dim);
+        color: var(--cyan);
+    }
+    .market-body {
+        padding: 14px;
+    }
+    .market-body.collapsed { display: none; }
+    /* Items table */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    th {
+        text-align: left;
+        padding: 8px 10px;
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text-2);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+    }
+    td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+    }
+    tr.ok { background: transparent; }
+    tr.warn { background: rgba(251, 191, 36, 0.06); }
+    tr.alert { background: rgba(248, 113, 113, 0.08); }
+    tr.alert td.status-cell { color: var(--red); font-weight: 600; }
+    tr.warn td.status-cell { color: var(--yellow); font-weight: 600; }
+    tr.ok td.status-cell { color: var(--green); }
+    .item-name {
+        font-family: "Segoe UI", sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-0);
+    }
+    .num { text-align: right; }
+    .mini-btn {
+        padding: 3px 8px;
+        font-size: 10px;
+    }
+    .add-item-row {
+        display: grid;
+        grid-template-columns: 2fr repeat(4, 1fr) auto;
+        gap: 8px;
+        align-items: end;
+        padding: 10px;
+        background: var(--bg-3);
+        border: 1px dashed var(--border-hot);
+        margin-top: 10px;
+    }
+    .empty-hint {
+        padding: 20px;
+        text-align: center;
+        color: var(--text-2);
+        font-style: italic;
+        font-size: 12px;
+    }
+    .toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    /* Alerts banner */
+    .alerts-banner {
+        background: linear-gradient(90deg, rgba(248, 113, 113, 0.15), transparent);
+        border: 1px solid var(--red);
+        border-left-width: 4px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        display: none;
+    }
+    .alerts-banner.active { display: block; }
+    .alerts-title {
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+        color: var(--red);
+        letter-spacing: 2px;
+        margin-bottom: 6px;
+    }
+    .alerts-list {
+        font-size: 12px;
+        color: var(--text-1);
+    }
+    .alerts-list li {
+        list-style: none;
+        padding: 2px 0;
+    }
+    /* Modal */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.75);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal {
+        background: var(--bg-1);
+        border: 1px solid var(--border-hot);
+        width: 90%;
+        max-width: 760px;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    .modal-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .modal-body { padding: 16px; }
+    .station-list { list-style: none; }
+    .station-list li {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        margin-bottom: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+    .station-list li:hover {
+        border-color: var(--amber);
+        background: var(--bg-2);
+    }
+    .station-list li.is-structure {
+        border-left: 3px solid var(--purple);
+    }
+    .station-name { color: var(--text-0); font-weight: 500; }
+    .station-id { font-family: monospace; color: var(--text-2); font-size: 10px; margin-top: 4px; }
+    .loc-stats {
+        display: flex;
+        gap: 14px;
+        margin-top: 6px;
+        font-family: "Consolas", monospace;
+        font-size: 10px;
+        color: var(--text-1);
+    }
+    .stat-sell { color: var(--green); }
+    .stat-buy { color: var(--cyan); }
+    .loc-badge {
+        display: inline-block;
+        padding: 1px 6px;
+        font-size: 9px;
+        font-family: "Consolas", monospace;
+        letter-spacing: 1px;
+        border: 1px solid var(--border);
+        color: var(--text-2);
+        margin-left: 6px;
+    }
+    .loc-badge.structure { border-color: var(--purple); color: var(--purple); }
+    .loc-badge.station { border-color: var(--cyan-dim); color: var(--cyan); }
+    .loc-badge.good { border-color: var(--green); color: var(--green); }
+    .loc-badge.warn { border-color: var(--yellow); color: var(--yellow); }
+    .modal-section-title {
+        font-family: "Consolas", monospace;
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--amber);
+        text-transform: uppercase;
+        margin: 14px 0 8px 0;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .modal-section-title:first-child { margin-top: 0; }
+    .count-badge {
+        font-size: 9px;
+        padding: 1px 6px;
+        background: var(--bg-3);
+        border: 1px solid var(--border);
+        color: var(--text-1);
+    }
+    /* Loading */
+    .spinner {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border: 1px solid var(--text-2);
+        border-top-color: var(--amber);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+        color: var(--text-2);
+        font-size: 11px;
+        font-family: "Consolas", monospace;
+    }
+    .hint {
+        font-size: 11px;
+        color: var(--text-2);
+        margin-top: 6px;
+        font-family: "Consolas", monospace;
+    }
+    .inline-input { width: 100%; }
+    .structure-input-wrap {
+        display: none;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px dashed var(--border);
+        background: var(--bg-3);
+    }
+    .structure-input-wrap.active { display: block; }
+    .tag {
+        display: inline-block;
+        padding: 1px 6px;
+        font-size: 9px;
+        font-family: "Consolas", monospace;
+        letter-spacing: 1px;
+        border: 1px solid var(--border);
+        color: var(--text-2);
+        margin-left: 6px;
+    }
+    .tag.bad { border-color: var(--red); color: var(--red); }
+    .tag.warn { border-color: var(--yellow); color: var(--yellow); }
+    .tag.good { border-color: var(--green); color: var(--green); }
+    .refresh-info {
+        font-size: 10px;
+        color: var(--text-2);
+        font-family: "Consolas", monospace;
+        margin-top: 6px;
+    }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="brand">
+        <div class="brand-mark"></div>
+        <div>
+            <div class="brand-title">MARKET <span>MONITOR</span></div>
+            <div class="brand-sub">NEW EDEN / SUPPLY OPS</div>
+        </div>
+    </div>
+    <div class="header-actions">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">IDLE</span>
+        <span id="authPill" class="auth-pill" style="display:none;">
+            <span id="authCharName"></span>
+            <button id="logoutBtn" class="mini-btn" title="Log out">×</button>
+        </span>
+        <button id="loginBtn" class="btn-primary" style="display:none;">Log In with EVE</button>
+        <button id="refreshAllBtn">Refresh All</button>
+        <button id="exportBtn">Export</button>
+        <button id="importBtn">Import</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+    </div>
+</header>
+
+<div class="container">
+
+    <div class="alerts-banner" id="alertsBanner">
+        <div class="alerts-title">⚠ ACTIVE ALERTS</div>
+        <ul class="alerts-list" id="alertsList"></ul>
+    </div>
+
+    <!-- Add Market Section -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">Add Market</div>
+        </div>
+        <div class="section-body">
+            <div class="form-row">
+                <div class="autocomplete">
+                    <label>System Name</label>
+                    <input type="text" id="systemInput" placeholder="e.g. Jita, Amarr, W-IX39" autocomplete="off">
+                    <div class="autocomplete-results" id="systemResults"></div>
+                </div>
+                <button id="searchSystemBtn" class="btn-primary">Find Markets</button>
+            </div>
+            <div class="hint">
+                Type a system name and click Find Markets to list available NPC stations. For player structures (citadels/Upwell), you'll need the structure ID.
+            </div>
+            <div class="hint" id="systemsStatus" style="display:none;color:var(--cyan);"></div>
+            <div class="structure-input-wrap" id="structureInputWrap">
+                <label>Structure ID (from in-game, or ESI auth)</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="number" id="structureIdInput" class="inline-input" placeholder="e.g. 1035466617946">
+                    <input type="text" id="structureNameInput" placeholder="Structure name (optional)">
+                    <button id="addStructureBtn">Add Structure</button>
+                </div>
+                <div class="hint">Public structures only. You can find the ID by right-clicking the structure in-game → "Copy ID", or via an ESI-authenticated tool.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Watched Markets Section -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">Watched Markets</div>
+            <div class="toolbar">
+                <span class="refresh-info" id="lastRefreshInfo"></span>
+            </div>
+        </div>
+        <div class="section-body" id="marketsList">
+            <div class="empty-hint">No markets yet. Add one above to start monitoring.</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Station picker modal -->
+<div class="modal-backdrop" id="stationModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="section-title" id="stationModalTitle">Select Market</div>
+            <button id="stationModalClose">×</button>
+        </div>
+        <div class="modal-body" id="stationModalBody"></div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+ * EVE Market Monitor
+ * Standalone HTML — ESI public endpoints, localStorage persistence
+ * ============================================================ */
+
+const STORAGE_KEY = 'eveMarketMonitor.v1';
+const SYSTEMS_CACHE_KEY = 'eveMarketMonitor.systemsCache.v1';
+const SYSTEMS_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days — system list is ultra-stable
+const STRUCTURE_NAMES_KEY = 'eveMarketMonitor.structureNames.v1';
+const SSO_AUTH_KEY = 'eveMarketMonitor.ssoAuth.v1';
+const SSO_PKCE_KEY = 'eveMarketMonitor.ssoPkce.v1'; // transient, cleared after callback
+const ESI = 'https://esi.evetech.net/latest';
+
+/* ---------- EVE SSO config ---------- */
+const SSO_CLIENT_ID = '42478345ef11471fb2e5b4b48e531721';
+const SSO_CALLBACK = 'https://jwahoski04-hub.github.io/eve-market-monitor/';
+const SSO_AUTHORIZE_URL = 'https://login.eveonline.com/v2/oauth/authorize/';
+const SSO_TOKEN_URL = 'https://login.eveonline.com/v2/oauth/token';
+const SSO_SCOPES = [
+    'esi-universe.read_structures.v1',
+    'esi-markets.structure_markets.v1',
+    'esi-search.search_structures.v1',
+];
+// Data model
+// state = {
+//   markets: [{
+//     id: string, type: 'station'|'structure',
+//     locationId: number,          // stationID or structureID
+//     systemId: number, systemName: string,
+//     regionId: number, regionName: string,
+//     name: string,                // station or structure name
+//     items: [{
+//       typeId, typeName,
+//       minStock, priceFloor, priceCeiling, daysSupply,
+//       // computed: totalSellQty, lowestSell, highestBuy, dailyVolume
+//     }],
+//     lastFetched: timestamp,
+//     orders: [] // raw snapshot of sell orders for region, filtered by location
+//   }]
+// }
+
+let state = load();
+
+/* ---------------- Persistence ---------------- */
+function load() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch (e) { console.warn('Load failed', e); }
+    return { markets: [] };
+}
+function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+/* ---------------- Status ---------------- */
+function setStatus(text, color) {
+    document.getElementById('statusText').textContent = text.toUpperCase();
+    const dot = document.getElementById('statusDot');
+    dot.style.background = color || 'var(--green)';
+    dot.style.boxShadow = `0 0 8px ${color || 'var(--green)'}`;
+}
+
+/* ============================================================
+ * EVE SSO (OAuth 2.0 PKCE) — browser-only, no backend
+ * ============================================================ */
+const sso = {
+    auth: null, // { access_token, refresh_token, expires_at, character_id, character_name }
+
+    load() {
+        try {
+            const raw = localStorage.getItem(SSO_AUTH_KEY);
+            if (raw) this.auth = JSON.parse(raw);
+        } catch { this.auth = null; }
+    },
+    saveAuth() {
+        if (this.auth) localStorage.setItem(SSO_AUTH_KEY, JSON.stringify(this.auth));
+        else localStorage.removeItem(SSO_AUTH_KEY);
+    },
+    isLoggedIn() {
+        return !!(this.auth && this.auth.refresh_token);
+    },
+    logout() {
+        this.auth = null;
+        this.saveAuth();
+        updateAuthUI();
+    },
+
+    /* ---- PKCE helpers ---- */
+    _b64url(bytes) {
+        let s = btoa(String.fromCharCode(...bytes));
+        return s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    },
+    async _sha256(text) {
+        const data = new TextEncoder().encode(text);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return new Uint8Array(hash);
+    },
+    _randomBytes(len) {
+        const a = new Uint8Array(len);
+        crypto.getRandomValues(a);
+        return a;
+    },
+
+    /* ---- Start auth flow: redirect to EVE SSO ---- */
+    async startLogin() {
+        const verifier = this._b64url(this._randomBytes(32));
+        const challenge = this._b64url(await this._sha256(verifier));
+        const state = this._b64url(this._randomBytes(16));
+        sessionStorage.setItem(SSO_PKCE_KEY, JSON.stringify({ verifier, state }));
+
+        const params = new URLSearchParams({
+            response_type: 'code',
+            redirect_uri: SSO_CALLBACK,
+            client_id: SSO_CLIENT_ID,
+            scope: SSO_SCOPES.join(' '),
+            state,
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+        });
+        window.location.href = `${SSO_AUTHORIZE_URL}?${params.toString()}`;
+    },
+
+    /* ---- Called on page load if ?code= present in URL ---- */
+    async handleCallback() {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get('code');
+        const returnedState = url.searchParams.get('state');
+        if (!code) return false;
+
+        const pkceRaw = sessionStorage.getItem(SSO_PKCE_KEY);
+        if (!pkceRaw) {
+            console.warn('No PKCE verifier found — ignoring callback.');
+            // Clean URL anyway
+            window.history.replaceState({}, document.title, SSO_CALLBACK);
+            return false;
+        }
+        const { verifier, state } = JSON.parse(pkceRaw);
+        sessionStorage.removeItem(SSO_PKCE_KEY);
+
+        if (state !== returnedState) {
+            alert('SSO state mismatch — aborting login for security.');
+            window.history.replaceState({}, document.title, SSO_CALLBACK);
+            return false;
+        }
+
+        setStatus('Logging in...', 'var(--cyan)');
+        try {
+            const body = new URLSearchParams({
+                grant_type: 'authorization_code',
+                code,
+                client_id: SSO_CLIENT_ID,
+                code_verifier: verifier,
+            });
+            const res = await fetch(SSO_TOKEN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            });
+            if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`);
+            const token = await res.json();
+            this._storeToken(token);
+
+            // Clean URL
+            window.history.replaceState({}, document.title, SSO_CALLBACK);
+            setStatus('Idle');
+            updateAuthUI();
+            return true;
+        } catch (e) {
+            console.error(e);
+            alert('SSO login failed: ' + e.message);
+            setStatus('Login failed', 'var(--red)');
+            window.history.replaceState({}, document.title, SSO_CALLBACK);
+            return false;
+        }
+    },
+
+    _storeToken(tokenResponse) {
+        // Decode JWT payload for character info
+        const payload = tokenResponse.access_token.split('.')[1];
+        const claims = JSON.parse(atob(payload.replace(/-/g,'+').replace(/_/g,'/')));
+        // claims.sub = "CHARACTER:EVE:<id>", claims.name = character name
+        const subMatch = /CHARACTER:EVE:(\d+)/.exec(claims.sub || '');
+        this.auth = {
+            access_token: tokenResponse.access_token,
+            refresh_token: tokenResponse.refresh_token,
+            expires_at: Date.now() + (tokenResponse.expires_in * 1000) - 30_000, // 30s safety
+            character_id: subMatch ? parseInt(subMatch[1], 10) : null,
+            character_name: claims.name || 'Unknown',
+        };
+        this.saveAuth();
+    },
+
+    /* ---- Refresh access token if expired ---- */
+    async ensureFreshToken() {
+        if (!this.isLoggedIn()) throw new Error('Not logged in');
+        if (Date.now() < this.auth.expires_at) return this.auth.access_token;
+
+        const body = new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: this.auth.refresh_token,
+            client_id: SSO_CLIENT_ID,
+        });
+        const res = await fetch(SSO_TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        });
+        if (!res.ok) {
+            // Refresh token invalidated — force logout
+            this.logout();
+            throw new Error('Session expired — please log in again.');
+        }
+        const token = await res.json();
+        this._storeToken(token);
+        return this.auth.access_token;
+    },
+
+    async authHeader() {
+        const tok = await this.ensureFreshToken();
+        return { 'Authorization': `Bearer ${tok}` };
+    },
+};
+sso.load();
+
+/* ---------------- ESI helpers ---------------- */
+async function esiGet(path, params = {}, opts = {}) {
+    const q = new URLSearchParams({ datasource: 'tranquility', ...params }).toString();
+    const url = `${ESI}${path}?${q}`;
+    const headers = { 'Accept': 'application/json' };
+    if (opts.auth) Object.assign(headers, await sso.authHeader());
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error(`ESI ${res.status}: ${path}`);
+    return { data: await res.json(), headers: res.headers };
+}
+
+async function esiPost(path, body, params = {}, opts = {}) {
+    const q = new URLSearchParams({ datasource: 'tranquility', ...params }).toString();
+    const url = `${ESI}${path}?${q}`;
+    const headers = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    if (opts.auth) Object.assign(headers, await sso.authHeader());
+    const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`ESI ${res.status}: ${path}`);
+    return await res.json();
+}
+
+// Get paged results (markets orders)
+async function esiGetAllPages(path, params = {}, opts = {}) {
+    const results = [];
+    let page = 1;
+    while (true) {
+        const { data, headers } = await esiGet(path, { ...params, page }, opts);
+        results.push(...data);
+        const totalPages = parseInt(headers.get('x-pages') || '1', 10);
+        if (page >= totalPages || data.length === 0) break;
+        page++;
+        if (page > 300) break; // safety cap (Forge ~100pg)
+    }
+    return results;
+}
+
+/* ---------------- Universe lookups ---------------- */
+async function searchSystem(name) {
+    // Use POST /universe/ids/
+    const result = await esiPost('/universe/ids/', [name]);
+    return (result.systems || []);
+}
+
+async function getSystem(systemId) {
+    const { data } = await esiGet(`/universe/systems/${systemId}/`);
+    return data; // has constellation_id, name, stations, security_status, etc.
+}
+
+async function getConstellation(constellationId) {
+    const { data } = await esiGet(`/universe/constellations/${constellationId}/`);
+    return data; // has region_id
+}
+
+async function getStation(stationId) {
+    const { data } = await esiGet(`/universe/stations/${stationId}/`);
+    return data; // name, system_id, etc.
+}
+
+async function getStructure(structureId) {
+    // Structure details require ESI auth — character must have docking access.
+    if (!sso.isLoggedIn()) return null;
+    try {
+        const { data } = await esiGet(`/universe/structures/${structureId}/`, {}, { auth: true });
+        return data; // { name, solar_system_id, type_id, owner_id }
+    } catch (e) {
+        // 403 = no docking access; other errors are just noise
+        return null;
+    }
+}
+
+async function getRegion(regionId) {
+    const { data } = await esiGet(`/universe/regions/${regionId}/`);
+    return data;
+}
+
+async function resolveNames(ids) {
+    if (!ids.length) return {};
+    // POST /universe/names/
+    const data = await esiPost('/universe/names/', ids);
+    const out = {};
+    data.forEach(d => out[d.id] = d.name);
+    return out;
+}
+
+/* ---------------- Type (item) lookup via Fuzzwork ---------------- */
+async function searchTypeByName(name) {
+    // Fuzzwork exact-name-to-id API (supports partial via their search endpoint differently)
+    // We'll use ESI's /universe/ids/ which supports partial via /universe/search/ but that's
+    // being deprecated. Simplest: POST /universe/ids/ which does exact match.
+    try {
+        const result = await esiPost('/universe/ids/', [name]);
+        return result.inventory_types || [];
+    } catch { return []; }
+}
+
+/* ---------------- Market data ---------------- */
+async function fetchRegionOrdersForType(regionId, typeId) {
+    // GET /markets/{region}/orders/?type_id=X — returns all orders for a type in that region
+    const orders = await esiGetAllPages(`/markets/${regionId}/orders/`, { type_id: typeId, order_type: 'all' });
+    return orders;
+}
+
+async function fetchRegionHistory(regionId, typeId) {
+    // GET /markets/{region}/history/?type_id=X — daily OHLC for last ~13 months
+    const { data } = await esiGet(`/markets/${regionId}/history/`, { type_id: typeId });
+    return data;
+}
+
+async function fetchStructureOrders(structureId) {
+    if (!sso.isLoggedIn()) {
+        throw new Error('Structure markets require SSO login. Click "Log In" in the header.');
+    }
+    try {
+        const orders = await esiGetAllPages(`/markets/structures/${structureId}/`, {}, { auth: true });
+        return orders;
+    } catch (e) {
+        throw new Error(`Could not fetch structure ${structureId}: your character may not have docking access.`);
+    }
+}
+
+/* ---------------- Structure name resolution (authenticated, cached) ---------------- */
+function loadStructureNames() {
+    try {
+        const raw = localStorage.getItem(STRUCTURE_NAMES_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch {}
+    return {}; // { [structureId]: { name, fetched_at, system_id, type_id } }
+}
+function saveStructureNames(map) {
+    localStorage.setItem(STRUCTURE_NAMES_KEY, JSON.stringify(map));
+}
+const structureNameCache = loadStructureNames();
+
+// Resolve many structure IDs to names. Requires SSO. Returns { id: name }.
+// Silently skips structures the character can't access.
+async function resolveStructureNames(structureIds) {
+    const out = {};
+    if (!structureIds.length) return out;
+
+    const uncached = [];
+    for (const id of structureIds) {
+        if (structureNameCache[id] && structureNameCache[id].name) {
+            out[id] = structureNameCache[id].name;
+        } else {
+            uncached.push(id);
+        }
+    }
+    if (!uncached.length) return out;
+    if (!sso.isLoggedIn()) return out; // can't resolve without auth; return cached only
+
+    // Serial fetch with small concurrency — ESI rate limits error responses (403s count)
+    // so we go one at a time and tolerate failures silently.
+    for (let i = 0; i < uncached.length; i++) {
+        const id = uncached[i];
+        try {
+            const data = await getStructure(id);
+            if (data && data.name) {
+                structureNameCache[id] = {
+                    name: data.name,
+                    system_id: data.solar_system_id,
+                    type_id: data.type_id,
+                    fetched_at: Date.now(),
+                };
+                out[id] = data.name;
+            } else {
+                // Mark as inaccessible but don't retry on every refresh
+                structureNameCache[id] = { name: null, fetched_at: Date.now() };
+            }
+        } catch { /* swallow */ }
+    }
+    saveStructureNames(structureNameCache);
+    return out;
+}
+
+/* ---------------- Find markets in a system ---------------- */
+// Strategy: pull all region orders (paginated), filter to this system,
+// group by location_id. Classify each location as NPC station (int32 range)
+// or Upwell structure (int64 range). Resolve NPC names; structures get
+// an ID-only label (user can rename on add).
+async function findMarketsInSystem(systemName) {
+    setStatus('Searching system...', 'var(--cyan)');
+    const matches = await searchSystem(systemName);
+    if (!matches.length) throw new Error(`System "${systemName}" not found.`);
+    const sys = matches[0];
+    const systemData = await getSystem(sys.id);
+    const constellation = await getConstellation(systemData.constellation_id);
+    const region = await getRegion(constellation.region_id);
+
+    // Pull all region orders with paging, tracking progress
+    setStatus(`Scanning ${region.name} orders... (may take a moment)`, 'var(--cyan)');
+
+    const locationStats = new Map(); // location_id -> { orderCount, sellCount, buyCount, typesSeen:Set }
+    let page = 1;
+    const MAX_PAGES = 300; // safety cap — Forge ~100pg, most others well under
+
+    while (true) {
+        let data, headers;
+        try {
+            ({ data, headers } = await esiGet(`/markets/${region.region_id}/orders/`, {
+                order_type: 'all', page
+            }));
+        } catch (e) {
+            if (page > 1) break; // partial is fine for scan
+            throw e;
+        }
+        for (const o of data) {
+            if (o.system_id !== sys.id) continue;
+            let stat = locationStats.get(o.location_id);
+            if (!stat) {
+                stat = { orderCount: 0, sellCount: 0, buyCount: 0, typesSeen: new Set() };
+                locationStats.set(o.location_id, stat);
+            }
+            stat.orderCount++;
+            if (o.is_buy_order) stat.buyCount++; else stat.sellCount++;
+            stat.typesSeen.add(o.type_id);
+        }
+        const totalPages = parseInt(headers.get('x-pages') || '1', 10);
+        setStatus(`Scanning ${region.name}... page ${page}/${totalPages}`, 'var(--cyan)');
+        if (page >= totalPages || data.length === 0 || page >= MAX_PAGES) break;
+        page++;
+    }
+
+    // Get the public-market structure list (for "verified public" flag on structures)
+    let publicStructureIds = new Set();
+    try {
+        const { data: pubIds } = await esiGet('/universe/structures/', { filter: 'market' });
+        publicStructureIds = new Set(pubIds);
+    } catch { /* non-fatal */ }
+
+    // Classify locations
+    const allLocationIds = Array.from(locationStats.keys());
+    const STATION_MAX = 100000000; // NPC station IDs are < 10^8
+    const stationIds = allLocationIds.filter(id => id < STATION_MAX);
+    const structureIds = allLocationIds.filter(id => id >= STATION_MAX);
+
+    // Resolve NPC station names
+    let stationNames = {};
+    if (stationIds.length) {
+        try { stationNames = await resolveNames(stationIds); } catch { /* tolerate */ }
+    }
+
+    // Also include NPC stations from the system that have NO orders (so user sees them)
+    // but only if the user might want them later. Since we filter to active markets only,
+    // skip this — but keep them available as a fallback list.
+    const emptyNpcStations = [];
+    if (systemData.stations) {
+        const withOrders = new Set(stationIds);
+        const inactive = systemData.stations.filter(id => !withOrders.has(id));
+        if (inactive.length) {
+            try {
+                const inactiveNames = await resolveNames(inactive);
+                for (const id of inactive) {
+                    emptyNpcStations.push({
+                        id, name: inactiveNames[id] || `Station ${id}`,
+                        type: 'station', active: false,
+                        orderCount: 0, sellCount: 0, buyCount: 0, typesCount: 0
+                    });
+                }
+            } catch { /* ignore */ }
+        }
+    }
+
+    const activeStations = stationIds.map(id => {
+        const s = locationStats.get(id);
+        return {
+            id, name: stationNames[id] || `Station ${id}`,
+            type: 'station', active: true,
+            orderCount: s.orderCount, sellCount: s.sellCount,
+            buyCount: s.buyCount, typesCount: s.typesSeen.size
+        };
+    }).sort((a, b) => b.orderCount - a.orderCount);
+
+    // Resolve structure names (requires SSO; silently falls back to ID if not logged in or no access)
+    let structureNames = {};
+    if (structureIds.length) {
+        if (sso.isLoggedIn()) {
+            setStatus(`Resolving ${structureIds.length} structure name(s)...`, 'var(--cyan)');
+            structureNames = await resolveStructureNames(structureIds);
+        } else {
+            // Use whatever's in the cache already
+            for (const id of structureIds) {
+                if (structureNameCache[id] && structureNameCache[id].name) {
+                    structureNames[id] = structureNameCache[id].name;
+                }
+            }
+        }
+    }
+
+    const activeStructures = structureIds.map(id => {
+        const s = locationStats.get(id);
+        const realName = structureNames[id];
+        return {
+            id,
+            name: realName || `Structure ${id}`,
+            hasRealName: !!realName,
+            type: 'structure', active: true,
+            isPublic: publicStructureIds.has(id),
+            orderCount: s.orderCount, sellCount: s.sellCount,
+            buyCount: s.buyCount, typesCount: s.typesSeen.size
+        };
+    }).sort((a, b) => b.orderCount - a.orderCount);
+
+    return {
+        system: { id: sys.id, name: sys.name, securityStatus: systemData.security_status },
+        region: { id: region.region_id, name: region.name },
+        activeStations,
+        activeStructures,
+        emptyNpcStations
+    };
+}
+
+/* ---------------- Add market ---------------- */
+function addMarket(market) {
+    // Avoid dupes
+    if (state.markets.find(m => m.locationId === market.locationId)) {
+        alert('This market is already being watched.');
+        return;
+    }
+    state.markets.push(market);
+    save();
+    render();
+}
+
+function removeMarket(id) {
+    if (!confirm('Remove this market and all its tracked items?')) return;
+    state.markets = state.markets.filter(m => m.id !== id);
+    save();
+    render();
+}
+
+/* ---------------- Add item to market ---------------- */
+async function addItemToMarket(marketId, typeName, thresholds) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market) return;
+
+    setStatus('Resolving item...', 'var(--cyan)');
+    const types = await searchTypeByName(typeName);
+    if (!types.length) {
+        alert(`Item "${typeName}" not found.`);
+        setStatus('Idle');
+        return;
+    }
+    // Prefer exact match
+    const match = types.find(t => t.name.toLowerCase() === typeName.toLowerCase()) || types[0];
+
+    if (market.items.find(i => i.typeId === match.id)) {
+        alert('Item already tracked in this market.');
+        setStatus('Idle');
+        return;
+    }
+
+    market.items.push({
+        typeId: match.id,
+        typeName: match.name,
+        minStock: thresholds.minStock || 0,
+        priceFloor: thresholds.priceFloor || 0,
+        priceCeiling: thresholds.priceCeiling || 0,
+        daysSupply: thresholds.daysSupply || 0,
+    });
+    save();
+    render();
+    setStatus('Idle');
+
+    // Auto-refresh just-added item
+    refreshMarket(marketId);
+}
+
+function removeItem(marketId, typeId) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market) return;
+    market.items = market.items.filter(i => i.typeId !== typeId);
+    save();
+    render();
+}
+
+function updateItemThresholds(marketId, typeId, field, value) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market) return;
+    const item = market.items.find(i => i.typeId === typeId);
+    if (!item) return;
+    item[field] = parseFloat(value) || 0;
+    save();
+    evaluateAlerts();
+}
+
+/* ---------------- Refresh market data ---------------- */
+async function refreshMarket(marketId) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market || market.items.length === 0) return;
+
+    setStatus(`Fetching ${market.name}...`, 'var(--cyan)');
+
+    try {
+        if (market.type === 'station') {
+            // Pull region orders for each item, filter by location_id
+            for (const item of market.items) {
+                const orders = await fetchRegionOrdersForType(market.regionId, item.typeId);
+                const localOrders = orders.filter(o => o.location_id === market.locationId);
+
+                const sells = localOrders.filter(o => !o.is_buy_order);
+                const buys = localOrders.filter(o => o.is_buy_order);
+
+                item.totalSellQty = sells.reduce((sum, o) => sum + o.volume_remain, 0);
+                item.lowestSell = sells.length ? Math.min(...sells.map(o => o.price)) : null;
+                item.highestBuy = buys.length ? Math.max(...buys.map(o => o.price)) : null;
+                item.sellOrderCount = sells.length;
+
+                // Daily volume from region history (last 7 days average)
+                try {
+                    const history = await fetchRegionHistory(market.regionId, item.typeId);
+                    const recent = history.slice(-7);
+                    if (recent.length) {
+                        const avg = recent.reduce((s, d) => s + d.volume, 0) / recent.length;
+                        item.dailyVolume = Math.round(avg);
+                    } else {
+                        item.dailyVolume = 0;
+                    }
+                } catch { item.dailyVolume = 0; }
+            }
+        } else if (market.type === 'structure') {
+            // Structure markets require auth. Try anyway.
+            const allOrders = await fetchStructureOrders(market.locationId);
+            for (const item of market.items) {
+                const itemOrders = allOrders.filter(o => o.type_id === item.typeId);
+                const sells = itemOrders.filter(o => !o.is_buy_order);
+                const buys = itemOrders.filter(o => o.is_buy_order);
+                item.totalSellQty = sells.reduce((sum, o) => sum + o.volume_remain, 0);
+                item.lowestSell = sells.length ? Math.min(...sells.map(o => o.price)) : null;
+                item.highestBuy = buys.length ? Math.max(...buys.map(o => o.price)) : null;
+                item.sellOrderCount = sells.length;
+                // Fall back to region history for velocity estimate
+                try {
+                    const history = await fetchRegionHistory(market.regionId, item.typeId);
+                    const recent = history.slice(-7);
+                    item.dailyVolume = recent.length ? Math.round(recent.reduce((s, d) => s + d.volume, 0) / recent.length) : 0;
+                } catch { item.dailyVolume = 0; }
+            }
+        }
+        market.lastFetched = Date.now();
+        save();
+        render();
+        setStatus('Idle');
+    } catch (e) {
+        console.error(e);
+        setStatus('Fetch error', 'var(--red)');
+        alert(`Failed to refresh ${market.name}: ${e.message}`);
+    }
+}
+
+async function refreshAll() {
+    for (const market of state.markets) {
+        await refreshMarket(market.id);
+    }
+    evaluateAlerts();
+}
+
+/* ---------------- Alert evaluation ---------------- */
+function itemStatus(item) {
+    // returns {level: 'ok'|'warn'|'alert', reasons: []}
+    const reasons = [];
+    let level = 'ok';
+    const escalate = (newLevel, reason) => {
+        reasons.push(reason);
+        if (newLevel === 'alert') level = 'alert';
+        else if (newLevel === 'warn' && level !== 'alert') level = 'warn';
+    };
+
+    if (item.totalSellQty == null) return { level: 'ok', reasons: ['No data'] };
+
+    // Min stock threshold
+    if (item.minStock > 0 && item.totalSellQty < item.minStock) {
+        escalate('alert', `Stock ${fmtNum(item.totalSellQty)} < min ${fmtNum(item.minStock)}`);
+    } else if (item.minStock > 0 && item.totalSellQty < item.minStock * 1.2) {
+        escalate('warn', `Stock approaching minimum`);
+    }
+
+    // Price floor (alert if lowest sell dropped below floor)
+    if (item.priceFloor > 0 && item.lowestSell != null && item.lowestSell < item.priceFloor) {
+        escalate('alert', `Sell ${fmtIsk(item.lowestSell)} below floor ${fmtIsk(item.priceFloor)}`);
+    }
+
+    // Price ceiling (alert if lowest sell exceeds ceiling — someone's price gouging your resupply)
+    if (item.priceCeiling > 0 && item.lowestSell != null && item.lowestSell > item.priceCeiling) {
+        escalate('alert', `Sell ${fmtIsk(item.lowestSell)} above ceiling ${fmtIsk(item.priceCeiling)}`);
+    }
+
+    // Days supply
+    if (item.daysSupply > 0 && item.dailyVolume > 0) {
+        const daysLeft = item.totalSellQty / item.dailyVolume;
+        if (daysLeft < item.daysSupply) {
+            escalate('alert', `${daysLeft.toFixed(1)}d supply < target ${item.daysSupply}d`);
+        } else if (daysLeft < item.daysSupply * 1.3) {
+            escalate('warn', `Supply runway tight (${daysLeft.toFixed(1)}d)`);
+        }
+    }
+
+    return { level, reasons };
+}
+
+function evaluateAlerts() {
+    const alerts = [];
+    for (const market of state.markets) {
+        for (const item of market.items) {
+            const status = itemStatus(item);
+            if (status.level === 'alert') {
+                alerts.push(`${market.name} :: ${item.typeName} — ${status.reasons.join('; ')}`);
+            }
+        }
+    }
+    const banner = document.getElementById('alertsBanner');
+    const list = document.getElementById('alertsList');
+    if (alerts.length) {
+        banner.classList.add('active');
+        list.innerHTML = alerts.map(a => `<li>▸ ${escapeHtml(a)}</li>`).join('');
+    } else {
+        banner.classList.remove('active');
+    }
+}
+
+/* ---------------- Formatting helpers ---------------- */
+function fmtNum(n) {
+    if (n == null) return '—';
+    return n.toLocaleString('en-US');
+}
+function fmtIsk(n) {
+    if (n == null) return '—';
+    if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(2) + 'K';
+    return n.toFixed(2);
+}
+function fmtTime(ts) {
+    if (!ts) return 'never';
+    const d = new Date(ts);
+    const diff = Date.now() - ts;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    return d.toLocaleString();
+}
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+}
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+/* ---------------- Rendering ---------------- */
+function render() {
+    const list = document.getElementById('marketsList');
+    if (state.markets.length === 0) {
+        list.innerHTML = '<div class="empty-hint">No markets yet. Add one above to start monitoring.</div>';
+        updateLastRefreshInfo();
+        evaluateAlerts();
+        return;
+    }
+
+    list.innerHTML = state.markets.map(m => renderMarketCard(m)).join('');
+    bindMarketCardEvents();
+    evaluateAlerts();
+    updateLastRefreshInfo();
+}
+
+function renderMarketCard(market) {
+    const collapsed = market._collapsed ? 'collapsed' : '';
+    const chevron = market._collapsed ? '▸' : '▾';
+    return `
+    <div class="market-card" data-market-id="${market.id}">
+        <div class="market-card-header" data-toggle="${market.id}">
+            <div>
+                <span style="margin-right:8px;color:var(--text-2);">${chevron}</span>
+                <span class="market-name">${escapeHtml(market.name)}</span>
+                <span class="market-badge ${market.type}">${market.type}</span>
+                <div class="market-system">${escapeHtml(market.systemName)} · ${escapeHtml(market.regionName)}</div>
+            </div>
+            <div class="market-meta">
+                <span class="refresh-info">Updated ${fmtTime(market.lastFetched)}</span>
+                <button class="mini-btn" data-refresh="${market.id}">Refresh</button>
+                <button class="mini-btn btn-danger" data-remove-market="${market.id}">Remove</button>
+            </div>
+        </div>
+        <div class="market-body ${collapsed}">
+            ${renderItemsTable(market)}
+            ${renderAddItemForm(market)}
+        </div>
+    </div>
+    `;
+}
+
+function renderItemsTable(market) {
+    if (market.items.length === 0) return '<div class="empty-hint">No items tracked. Add one below.</div>';
+    const rows = market.items.map(item => {
+        const status = itemStatus(item);
+        const daysLeft = (item.dailyVolume > 0 && item.totalSellQty != null)
+            ? (item.totalSellQty / item.dailyVolume).toFixed(1) + 'd' : '—';
+        return `
+        <tr class="${status.level}">
+            <td class="item-name">${escapeHtml(item.typeName)}</td>
+            <td class="num">${fmtNum(item.totalSellQty)}</td>
+            <td class="num">${fmtIsk(item.lowestSell)}</td>
+            <td class="num">${fmtIsk(item.highestBuy)}</td>
+            <td class="num">${fmtNum(item.dailyVolume)}</td>
+            <td class="num">${daysLeft}</td>
+            <td><input type="number" value="${item.minStock}" data-edit="minStock" data-item="${item.typeId}" data-market="${market.id}" style="width:80px;"></td>
+            <td><input type="number" value="${item.priceFloor}" data-edit="priceFloor" data-item="${item.typeId}" data-market="${market.id}" style="width:90px;"></td>
+            <td><input type="number" value="${item.priceCeiling}" data-edit="priceCeiling" data-item="${item.typeId}" data-market="${market.id}" style="width:90px;"></td>
+            <td><input type="number" value="${item.daysSupply}" data-edit="daysSupply" data-item="${item.typeId}" data-market="${market.id}" style="width:60px;"></td>
+            <td class="status-cell">${status.level === 'ok' ? '●' : status.level === 'warn' ? '▲' : '✕'} ${status.reasons.join('; ') || 'OK'}</td>
+            <td><button class="mini-btn btn-danger" data-remove-item="${market.id}|${item.typeId}">✕</button></td>
+        </tr>`;
+    }).join('');
+    return `
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th class="num">Stock</th>
+                <th class="num">Low Sell</th>
+                <th class="num">High Buy</th>
+                <th class="num">Daily Vol</th>
+                <th class="num">Days Left</th>
+                <th>Min Stock</th>
+                <th>Floor</th>
+                <th>Ceiling</th>
+                <th>Tgt Days</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>
+    `;
+}
+
+function renderAddItemForm(market) {
+    return `
+    <div class="add-item-row" data-add-row="${market.id}">
+        <div>
+            <label>Item Name</label>
+            <input type="text" placeholder="e.g. Mechanical Parts" data-add-field="typeName">
+        </div>
+        <div>
+            <label>Min Stock</label>
+            <input type="number" placeholder="0" data-add-field="minStock">
+        </div>
+        <div>
+            <label>Price Floor</label>
+            <input type="number" placeholder="0" data-add-field="priceFloor">
+        </div>
+        <div>
+            <label>Price Ceiling</label>
+            <input type="number" placeholder="0" data-add-field="priceCeiling">
+        </div>
+        <div>
+            <label>Target Days</label>
+            <input type="number" placeholder="0" data-add-field="daysSupply">
+        </div>
+        <button data-add-item="${market.id}" class="btn-primary">Add Item</button>
+    </div>`;
+}
+
+function updateLastRefreshInfo() {
+    const latest = state.markets.reduce((max, m) => Math.max(max, m.lastFetched || 0), 0);
+    document.getElementById('lastRefreshInfo').textContent =
+        latest ? `Last refresh: ${fmtTime(latest)}` : '';
+}
+
+function bindMarketCardEvents() {
+    document.querySelectorAll('[data-toggle]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+            const id = el.getAttribute('data-toggle');
+            const m = state.markets.find(x => x.id === id);
+            if (m) { m._collapsed = !m._collapsed; render(); }
+        });
+    });
+    document.querySelectorAll('[data-refresh]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            refreshMarket(el.getAttribute('data-refresh'));
+        });
+    });
+    document.querySelectorAll('[data-remove-market]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeMarket(el.getAttribute('data-remove-market'));
+        });
+    });
+    document.querySelectorAll('[data-remove-item]').forEach(el => {
+        el.addEventListener('click', () => {
+            const [mid, tid] = el.getAttribute('data-remove-item').split('|');
+            removeItem(mid, parseInt(tid, 10));
+        });
+    });
+    document.querySelectorAll('[data-edit]').forEach(el => {
+        el.addEventListener('change', () => {
+            updateItemThresholds(
+                el.getAttribute('data-market'),
+                parseInt(el.getAttribute('data-item'), 10),
+                el.getAttribute('data-edit'),
+                el.value
+            );
+            render();
+        });
+    });
+    document.querySelectorAll('[data-add-item]').forEach(el => {
+        el.addEventListener('click', () => {
+            const marketId = el.getAttribute('data-add-item');
+            const row = document.querySelector(`[data-add-row="${marketId}"]`);
+            const fields = {};
+            row.querySelectorAll('[data-add-field]').forEach(f => {
+                fields[f.getAttribute('data-add-field')] = f.value;
+            });
+            if (!fields.typeName.trim()) { alert('Enter an item name.'); return; }
+            addItemToMarket(marketId, fields.typeName.trim(), {
+                minStock: parseFloat(fields.minStock) || 0,
+                priceFloor: parseFloat(fields.priceFloor) || 0,
+                priceCeiling: parseFloat(fields.priceCeiling) || 0,
+                daysSupply: parseFloat(fields.daysSupply) || 0,
+            });
+        });
+    });
+}
+
+/* ---------------- Find-markets UI ---------------- */
+document.getElementById('searchSystemBtn').addEventListener('click', async () => {
+    const name = document.getElementById('systemInput').value.trim();
+    if (!name) return;
+    try {
+        const info = await findMarketsInSystem(name);
+        openStationModal(info);
+    } catch (e) {
+        alert(e.message);
+        setStatus('Idle');
+    }
+});
+document.getElementById('systemInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('searchSystemBtn').click();
+});
+
+function openStationModal(info) {
+    const modal = document.getElementById('stationModal');
+    const title = document.getElementById('stationModalTitle');
+    const body = document.getElementById('stationModalBody');
+    title.textContent = `${info.system.name} (${info.region.name}) — Sec ${info.system.securityStatus.toFixed(1)}`;
+
+    const renderLocCard = (loc) => {
+        const payload = escapeHtml(JSON.stringify({
+            id: loc.id, name: loc.name, type: loc.type,
+            hasRealName: loc.hasRealName || false,
+            systemId: info.system.id, systemName: info.system.name,
+            regionId: info.region.id, regionName: info.region.name
+        }));
+        const stats = loc.active
+            ? `<div class="loc-stats">
+                 <span>${loc.orderCount.toLocaleString()} orders</span>
+                 <span class="stat-sell">${loc.sellCount.toLocaleString()} sell</span>
+                 <span class="stat-buy">${loc.buyCount.toLocaleString()} buy</span>
+                 <span>${loc.typesCount.toLocaleString()} items</span>
+               </div>`
+            : `<div class="loc-stats"><span style="color:var(--text-2);">No market activity</span></div>`;
+        const badges = [];
+        if (loc.type === 'structure') {
+            badges.push(`<span class="loc-badge structure">UPWELL</span>`);
+            if (loc.hasRealName) {
+                badges.push(`<span class="loc-badge good">NAMED</span>`);
+            } else if (sso.isLoggedIn()) {
+                badges.push(`<span class="loc-badge warn">NO ACCESS</span>`);
+            } else {
+                badges.push(`<span class="loc-badge warn">LOGIN FOR NAME</span>`);
+            }
+        } else {
+            badges.push(`<span class="loc-badge station">NPC</span>`);
+        }
+        return `
+        <li data-add-loc='${payload}' class="${loc.type === 'structure' ? 'is-structure' : ''}">
+            <div style="flex:1;">
+                <div>
+                    <span class="station-name">${escapeHtml(loc.name)}</span>
+                    ${badges.join(' ')}
+                </div>
+                ${stats}
+                <div class="station-id">ID ${loc.id}</div>
+            </div>
+            <button class="mini-btn btn-primary">Add</button>
+        </li>`;
+    };
+
+    let html = '';
+
+    // Active NPC stations
+    if (info.activeStations.length) {
+        html += `<div class="modal-section-title">NPC STATIONS <span class="count-badge">${info.activeStations.length}</span></div>`;
+        html += `<ul class="station-list">${info.activeStations.map(renderLocCard).join('')}</ul>`;
+    }
+
+    // Active structures
+    if (info.activeStructures.length) {
+        html += `<div class="modal-section-title">PLAYER STRUCTURES <span class="count-badge">${info.activeStructures.length}</span></div>`;
+        html += `<div class="hint" style="margin-bottom:8px;">Structure names require ESI auth. You'll be prompted for a friendly name when adding.</div>`;
+        html += `<ul class="station-list">${info.activeStructures.map(renderLocCard).join('')}</ul>`;
+    }
+
+    // Inactive NPC stations (collapsed)
+    if (info.emptyNpcStations.length) {
+        html += `<details style="margin-top:12px;">
+            <summary style="cursor:pointer;color:var(--text-2);font-size:11px;font-family:Consolas,monospace;letter-spacing:1px;padding:8px 0;">
+                SHOW ${info.emptyNpcStations.length} INACTIVE NPC STATIONS
+            </summary>
+            <ul class="station-list" style="margin-top:8px;">${info.emptyNpcStations.map(renderLocCard).join('')}</ul>
+        </details>`;
+    }
+
+    if (!info.activeStations.length && !info.activeStructures.length && !info.emptyNpcStations.length) {
+        html += `<div class="empty-hint">No markets or stations found in this system.</div>`;
+    }
+
+    // Manual structure entry fallback
+    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div class="modal-section-title">ADD STRUCTURE BY ID (MANUAL)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
+            <input type="number" id="structIdField" placeholder="Structure ID">
+            <input type="text" id="structNameField" placeholder="Friendly name">
+            <button id="addStructFromModal" class="btn-primary">Add</button>
+        </div>
+        <div class="hint">Use if you have the ID of a structure not shown above (e.g. private market). Refreshing private structures requires ESI auth.</div>
+    </div>`;
+
+    body.innerHTML = html;
+    modal.classList.add('active');
+
+    // Bind location add buttons
+    body.querySelectorAll('[data-add-loc]').forEach(el => {
+        el.addEventListener('click', () => {
+            const d = JSON.parse(el.getAttribute('data-add-loc'));
+            let finalName = d.name;
+            if (d.type === 'structure' && !d.hasRealName) {
+                const friendly = prompt(`Enter a friendly name for structure ${d.id}:`, '');
+                if (friendly === null) return; // cancelled
+                finalName = friendly.trim() || d.name;
+            }
+            addMarket({
+                id: uid(),
+                type: d.type,
+                locationId: d.id,
+                systemId: d.systemId,
+                systemName: d.systemName,
+                regionId: d.regionId,
+                regionName: d.regionName,
+                name: finalName,
+                items: [],
+                lastFetched: null,
+            });
+            closeStationModal();
+        });
+    });
+
+    // Manual structure add
+    document.getElementById('addStructFromModal').addEventListener('click', () => {
+        const sid = parseInt(document.getElementById('structIdField').value, 10);
+        const sname = document.getElementById('structNameField').value.trim();
+        if (!sid || !sname) { alert('Enter both structure ID and a name.'); return; }
+        addMarket({
+            id: uid(),
+            type: 'structure',
+            locationId: sid,
+            systemId: info.system.id,
+            systemName: info.system.name,
+            regionId: info.region.id,
+            regionName: info.region.name,
+            name: sname,
+            items: [],
+            lastFetched: null,
+        });
+        closeStationModal();
+    });
+
+    setStatus('Idle');
+}
+function closeStationModal() {
+    document.getElementById('stationModal').classList.remove('active');
+}
+document.getElementById('stationModalClose').addEventListener('click', closeStationModal);
+document.getElementById('stationModal').addEventListener('click', (e) => {
+    if (e.target.id === 'stationModal') closeStationModal();
+});
+
+/* ---------------- Systems index (cached full list, filtered client-side) ---------------- */
+// systemsIndex = [{ id, name, lower }] for ~8,000 systems
+let systemsIndex = null;
+let systemsLoading = false;
+
+async function loadSystemsIndex() {
+    // Try cache first
+    try {
+        const raw = localStorage.getItem(SYSTEMS_CACHE_KEY);
+        if (raw) {
+            const cached = JSON.parse(raw);
+            if (cached.ts && (Date.now() - cached.ts) < SYSTEMS_CACHE_TTL && Array.isArray(cached.systems)) {
+                systemsIndex = cached.systems;
+                updateSystemsStatus();
+                return;
+            }
+        }
+    } catch (e) { /* fall through and refetch */ }
+
+    if (systemsLoading) return;
+    systemsLoading = true;
+    setStatus('Loading systems...', 'var(--cyan)');
+    updateSystemsStatus('Loading system index (first run only)...');
+
+    try {
+        // 1) Get all system IDs (~8000)
+        const { data: allIds } = await esiGet('/universe/systems/');
+        // 2) Resolve names in batches of 1000 via POST /universe/names/
+        const systems = [];
+        for (let i = 0; i < allIds.length; i += 1000) {
+            const batch = allIds.slice(i, i + 1000);
+            const names = await esiPost('/universe/names/', batch);
+            for (const n of names) {
+                if (n.category === 'solar_system') {
+                    systems.push({ id: n.id, name: n.name, lower: n.name.toLowerCase() });
+                }
+            }
+            updateSystemsStatus(`Loading system index... ${systems.length}/${allIds.length}`);
+        }
+        systems.sort((a, b) => a.name.localeCompare(b.name));
+        systemsIndex = systems;
+        try {
+            localStorage.setItem(SYSTEMS_CACHE_KEY, JSON.stringify({ ts: Date.now(), systems }));
+        } catch (e) { console.warn('Could not cache system index', e); }
+        setStatus('Idle');
+        updateSystemsStatus();
+    } catch (e) {
+        console.error(e);
+        setStatus('System load failed', 'var(--red)');
+        updateSystemsStatus('System index failed to load — you can still type the exact system name.');
+    } finally {
+        systemsLoading = false;
+    }
+}
+
+function updateSystemsStatus(msg) {
+    const el = document.getElementById('systemsStatus');
+    if (!el) return;
+    if (msg) {
+        el.textContent = msg;
+        el.style.display = 'block';
+    } else if (systemsIndex) {
+        el.textContent = `${systemsIndex.length.toLocaleString()} systems indexed.`;
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+function filterSystems(query, limit = 30) {
+    if (!systemsIndex) return [];
+    const q = query.toLowerCase();
+    const prefix = [];
+    const contains = [];
+    for (const s of systemsIndex) {
+        const idx = s.lower.indexOf(q);
+        if (idx === 0) prefix.push(s);
+        else if (idx > 0) contains.push(s);
+        if (prefix.length >= limit) break;
+    }
+    // Prefix matches first, then contains matches, capped
+    return prefix.concat(contains).slice(0, limit);
+}
+
+/* ---------------- System autocomplete (instant, client-side) ---------------- */
+let highlightedIdx = -1;
+let currentMatches = [];
+
+function renderAutocomplete(matches, query) {
+    const results = document.getElementById('systemResults');
+    if (!matches.length) {
+        results.innerHTML = `<div class="autocomplete-empty">No systems match "${escapeHtml(query)}"</div>`;
+        results.classList.add('active');
+        return;
+    }
+    results.innerHTML = matches.map((m, i) => {
+        const hl = highlightMatch(m.name, query);
+        return `<div class="autocomplete-item ${i === highlightedIdx ? 'highlighted' : ''}" data-idx="${i}" data-system="${escapeHtml(m.name)}">
+            <span>${hl}</span>
+            <span class="autocomplete-item-sub">ID ${m.id}</span>
+        </div>`;
+    }).join('');
+    results.classList.add('active');
+    results.querySelectorAll('[data-system]').forEach(el => {
+        el.addEventListener('click', () => selectSystem(el.getAttribute('data-system')));
+        el.addEventListener('mouseenter', () => {
+            highlightedIdx = parseInt(el.getAttribute('data-idx'), 10);
+            results.querySelectorAll('.autocomplete-item').forEach((n, i) => {
+                n.classList.toggle('highlighted', i === highlightedIdx);
+            });
+        });
+    });
+}
+
+function highlightMatch(name, query) {
+    if (!query) return escapeHtml(name);
+    const lower = name.toLowerCase();
+    const q = query.toLowerCase();
+    const idx = lower.indexOf(q);
+    if (idx === -1) return escapeHtml(name);
+    return escapeHtml(name.slice(0, idx)) +
+           `<span style="color:var(--amber);font-weight:600;">${escapeHtml(name.slice(idx, idx + query.length))}</span>` +
+           escapeHtml(name.slice(idx + query.length));
+}
+
+function selectSystem(name) {
+    document.getElementById('systemInput').value = name;
+    document.getElementById('systemResults').classList.remove('active');
+    highlightedIdx = -1;
+    // Auto-open the market picker on selection so you don't have to click Find Markets
+    document.getElementById('searchSystemBtn').click();
+}
+
+document.getElementById('systemInput').addEventListener('input', (e) => {
+    const q = e.target.value.trim();
+    const results = document.getElementById('systemResults');
+    highlightedIdx = -1;
+    if (q.length < 1) { results.classList.remove('active'); currentMatches = []; return; }
+    if (!systemsIndex) {
+        // Index still loading — fall back to exact ESI match
+        results.innerHTML = `<div class="autocomplete-empty">System index still loading...</div>`;
+        results.classList.add('active');
+        return;
+    }
+    currentMatches = filterSystems(q);
+    renderAutocomplete(currentMatches, q);
+});
+
+document.getElementById('systemInput').addEventListener('keydown', (e) => {
+    const results = document.getElementById('systemResults');
+    if (!results.classList.contains('active') || !currentMatches.length) {
+        if (e.key === 'Enter') document.getElementById('searchSystemBtn').click();
+        return;
+    }
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightedIdx = Math.min(currentMatches.length - 1, highlightedIdx + 1);
+        renderAutocomplete(currentMatches, e.target.value.trim());
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightedIdx = Math.max(0, highlightedIdx - 1);
+        renderAutocomplete(currentMatches, e.target.value.trim());
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightedIdx >= 0 && currentMatches[highlightedIdx]) {
+            selectSystem(currentMatches[highlightedIdx].name);
+        } else {
+            document.getElementById('searchSystemBtn').click();
+        }
+    } else if (e.key === 'Escape') {
+        results.classList.remove('active');
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.autocomplete')) {
+        document.getElementById('systemResults').classList.remove('active');
+    }
+});
+
+/* ---------------- Header buttons ---------------- */
+document.getElementById('refreshAllBtn').addEventListener('click', refreshAll);
+document.getElementById('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eve-market-monitor-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+});
+document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const imported = JSON.parse(reader.result);
+            if (!imported.markets) throw new Error('Invalid file');
+            if (confirm(`Import ${imported.markets.length} market(s)? This will replace current data.`)) {
+                state = imported;
+                save();
+                render();
+            }
+        } catch (err) {
+            alert('Import failed: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+});
+
+/* ---------------- Auth UI ---------------- */
+function updateAuthUI() {
+    const loginBtn = document.getElementById('loginBtn');
+    const pill = document.getElementById('authPill');
+    const name = document.getElementById('authCharName');
+    if (sso.isLoggedIn()) {
+        pill.style.display = 'inline-flex';
+        loginBtn.style.display = 'none';
+        name.textContent = sso.auth.character_name || 'Authenticated';
+    } else {
+        pill.style.display = 'none';
+        loginBtn.style.display = 'inline-block';
+    }
+}
+
+document.getElementById('loginBtn').addEventListener('click', () => sso.startLogin());
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (confirm('Log out of EVE SSO? Your watchlist will stay.')) sso.logout();
+});
+
+/* ---------------- Initial render ---------------- */
+(async () => {
+    // 1. Handle OAuth callback if we just came back from login.eveonline.com
+    const handled = await sso.handleCallback();
+    // 2. Render UI (auth state may have just changed)
+    updateAuthUI();
+    render();
+    setStatus('Idle');
+    // 3. Kick off systems index load (cached after first run)
+    loadSystemsIndex();
+    // 4. If we just logged in, try to proactively resolve any cached-but-unknown
+    //    structure names for markets already in the watchlist.
+    if (handled && sso.isLoggedIn()) {
+        const ids = state.markets
+            .filter(m => m.type === 'structure')
+            .map(m => m.locationId);
+        if (ids.length) {
+            const names = await resolveStructureNames(ids);
+            let updated = false;
+            for (const m of state.markets) {
+                if (m.type === 'structure' && names[m.locationId]) {
+                    m.name = names[m.locationId];
+                    updated = true;
+                }
+            }
+            if (updated) { save(); render(); }
+        }
+    }
+})();
+</script>
+
+</body>
+</html>
