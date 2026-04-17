@@ -307,6 +307,17 @@
         gap: 12px;
         cursor: pointer;
         user-select: none;
+        /* Sticky header — stays pinned to viewport top while scrolling this card */
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: var(--bg-3);
+        /* Subtle shadow when stuck, so it visually lifts off the content below */
+        transition: box-shadow 0.15s;
+    }
+    .market-card-header.is-stuck {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        border-bottom-color: var(--border-hot);
     }
     .market-card-header:hover { background: rgba(255, 255, 255, 0.03); }
     .market-name {
@@ -2389,9 +2400,61 @@ function render() {
 
     list.innerHTML = state.markets.map(m => renderMarketCard(m)).join('');
     bindMarketCardEvents();
+    setupStickyHeaderObservers();
+    setupAutoScrollOnTableFocus();
     evaluateAlerts();
     updateLastRefreshInfo();
     if (typeof updateGlobalThresholdUI === 'function') updateGlobalThresholdUI();
+}
+
+// IntersectionObserver to toggle .is-stuck on market headers when they pin to the viewport top
+let stickyObserver = null;
+function setupStickyHeaderObservers() {
+    if (stickyObserver) stickyObserver.disconnect();
+    // A 1px sentinel at top:-1px means the header entry intersects when scrolled into stuck position
+    stickyObserver = new IntersectionObserver(
+        (entries) => {
+            for (const entry of entries) {
+                // When the header's top edge goes above the viewport top (ratio < 1), it's stuck.
+                // We use a rootMargin of -1px at the top so the transition triggers exactly at the boundary.
+                if (entry.intersectionRatio < 1) {
+                    entry.target.classList.add('is-stuck');
+                } else {
+                    entry.target.classList.remove('is-stuck');
+                }
+            }
+        },
+        { threshold: [1], rootMargin: '-1px 0px 0px 0px' }
+    );
+    document.querySelectorAll('.market-card-header').forEach(h => stickyObserver.observe(h));
+}
+
+// Auto-scroll card into view when user starts interacting with its table
+let lastScrolledMarketId = null;
+function setupAutoScrollOnTableFocus() {
+    document.querySelectorAll('.market-card').forEach(card => {
+        const tableWrap = card.querySelector('.items-table-wrap');
+        if (!tableWrap) return;
+        // Trigger on user input inside the table (click, mousedown, or table-wrap wheel)
+        const trigger = (e) => {
+            // Don't re-scroll if we just scrolled to this card
+            const marketId = card.getAttribute('data-market-id');
+            if (!marketId) return;
+            if (marketId === lastScrolledMarketId) return;
+            // If the card is already mostly visible at the top, don't snap
+            const rect = card.getBoundingClientRect();
+            if (rect.top >= 0 && rect.top < 100) return;
+            // Only snap if card is scrolled past (header not visible or below viewport top)
+            if (rect.top > 100 || rect.top < -40) {
+                lastScrolledMarketId = marketId;
+                card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Reset guard after animation so a later interaction can re-trigger
+                setTimeout(() => { lastScrolledMarketId = null; }, 800);
+            }
+        };
+        // mousedown is broad — fires on table clicks, scrollbar drags, etc.
+        tableWrap.addEventListener('mousedown', trigger);
+    });
 }
 
 function renderMarketCard(market) {
