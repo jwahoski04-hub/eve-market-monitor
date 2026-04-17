@@ -366,6 +366,54 @@
         border: 1px dashed var(--border-hot);
         margin-top: 10px;
     }
+    .bulk-add-row {
+        padding: 10px;
+        background: var(--bg-3);
+        border: 1px dashed var(--border);
+        margin-top: 10px;
+    }
+    .bulk-add-row textarea {
+        width: 100%;
+        outline: none;
+    }
+    .bulk-add-row textarea:focus {
+        border-color: var(--amber);
+    }
+    .threshold-cell {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .toggle-btn {
+        padding: 0;
+        width: 20px;
+        height: 20px;
+        font-size: 14px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .toggle-btn.on {
+        background: var(--amber);
+        color: var(--bg-0);
+        border-color: var(--amber);
+    }
+    .toggle-btn.on:hover {
+        background: #ffb849;
+    }
+    .toggle-btn.off {
+        color: var(--text-2);
+    }
+    .toggle-btn.off:hover {
+        color: var(--amber);
+        border-color: var(--amber);
+    }
+    .disabled-input {
+        opacity: 0.4;
+        text-decoration: line-through;
+    }
     .empty-hint {
         padding: 20px;
         text-align: center;
@@ -1217,20 +1265,125 @@ async function addItemToMarket(marketId, typeName, thresholds) {
         return;
     }
 
-    market.items.push({
-        typeId: match.id,
-        typeName: match.name,
-        minStock: thresholds.minStock || 0,
-        priceFloor: thresholds.priceFloor || 0,
-        priceCeiling: thresholds.priceCeiling || 0,
-        daysSupply: thresholds.daysSupply || 0,
-    });
+    market.items.push(makeItem(match.id, match.name, thresholds));
     save();
     render();
     setStatus('Idle');
 
     // Auto-refresh just-added item
     refreshMarket(marketId);
+}
+
+function makeItem(typeId, typeName, thresholds = {}) {
+    return {
+        typeId, typeName,
+        minStock: thresholds.minStock || 0,
+        priceFloor: thresholds.priceFloor || 0,
+        priceCeiling: thresholds.priceCeiling || 0,
+        daysSupply: thresholds.daysSupply || 0,
+        // Toggles — default each one on only if a value was provided
+        minStockOn: !!(thresholds.minStock),
+        priceFloorOn: !!(thresholds.priceFloor),
+        priceCeilingOn: !!(thresholds.priceCeiling),
+        daysSupplyOn: !!(thresholds.daysSupply),
+    };
+}
+
+// Migrate older items missing toggle fields (backward-compat with existing watchlists)
+function migrateItem(item) {
+    if (item.minStockOn === undefined) item.minStockOn = (item.minStock || 0) > 0;
+    if (item.priceFloorOn === undefined) item.priceFloorOn = (item.priceFloor || 0) > 0;
+    if (item.priceCeilingOn === undefined) item.priceCeilingOn = (item.priceCeiling || 0) > 0;
+    if (item.daysSupplyOn === undefined) item.daysSupplyOn = (item.daysSupply || 0) > 0;
+    return item;
+}
+
+/* ---------------- Bulk add via multibuy paste ---------------- */
+// Parses EVE multibuy format: "Item Name\tQuantity" per line.
+// Also tolerates comma separators or name-only lines.
+function parseMultibuy(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const parsed = [];
+    for (const line of lines) {
+        // Split on tab first (true multibuy), fall back to last run of whitespace+number
+        let name, qty;
+        const tabIdx = line.indexOf('\t');
+        if (tabIdx >= 0) {
+            name = line.slice(0, tabIdx).trim();
+            const rest = line.slice(tabIdx + 1).trim().replace(/[,\s]/g, '');
+            qty = parseInt(rest, 10) || 1;
+        } else {
+            // Fallback: "Mechanical Parts 500" or comma format
+            const m = line.match(/^(.+?)[,\s]+([\d,\s]+)$/);
+            if (m) {
+                name = m[1].trim();
+                qty = parseInt(m[2].replace(/[,\s]/g, ''), 10) || 1;
+            } else {
+                name = line;
+                qty = 1;
+            }
+        }
+        if (name) parsed.push({ name, qty });
+    }
+    return parsed;
+}
+
+async function bulkAddItemsToMarket(marketId, text) {
+    const market = state.markets.find(m => m.id === marketId);
+    if (!market) return;
+    const entries = parseMultibuy(text);
+    if (!entries.length) {
+        alert('No items parsed from paste.');
+        return;
+    }
+
+    setStatus(`Resolving ${entries.length} item(s)...`, 'var(--cyan)');
+
+    // Resolve names in batches via POST /universe/ids/ (exact match, up to ~500 per call)
+    const nameToData = new Map(); // lowerName -> {id, name}
+    const BATCH = 200;
+    const uniqueNames = Array.from(new Set(entries.map(e => e.name)));
+    for (let i = 0; i < uniqueNames.length; i += BATCH) {
+        const batch = uniqueNames.slice(i, i + BATCH);
+        try {
+            const result = await esiPost('/universe/ids/', batch);
+            for (const t of (result.inventory_types || [])) {
+                nameToData.set(t.name.toLowerCase(), { id: t.id, name: t.name });
+            }
+        } catch (e) {
+            console.warn('Batch resolve failed', e);
+        }
+    }
+
+    const results = { added: [], skipped: [], notFound: [] };
+    for (const entry of entries) {
+        const hit = nameToData.get(entry.name.toLowerCase());
+        if (!hit) {
+            results.notFound.push(entry.name);
+            continue;
+        }
+        if (market.items.find(i => i.typeId === hit.id)) {
+            results.skipped.push(hit.name);
+            continue;
+        }
+        market.items.push(makeItem(hit.id, hit.name));
+        results.added.push(hit.name);
+    }
+
+    save();
+    render();
+    setStatus('Idle');
+
+    // Summary
+    const msg = [
+        `Added: ${results.added.length}`,
+        results.skipped.length ? `Already tracked: ${results.skipped.length}` : null,
+        results.notFound.length ? `Not found: ${results.notFound.length} (${results.notFound.slice(0, 5).join(', ')}${results.notFound.length > 5 ? '...' : ''})` : null,
+    ].filter(Boolean).join('\n');
+    alert(msg);
+
+    // Auto-refresh market to populate new items
+    if (results.added.length) refreshMarket(marketId);
 }
 
 function removeItem(marketId, typeId) {
@@ -1246,7 +1399,11 @@ function updateItemThresholds(marketId, typeId, field, value) {
     if (!market) return;
     const item = market.items.find(i => i.typeId === typeId);
     if (!item) return;
-    item[field] = parseFloat(value) || 0;
+    const num = parseFloat(value) || 0;
+    item[field] = num;
+    // Auto-enable the matching toggle if user typed a non-zero value
+    const onField = field + 'On';
+    if (num > 0) item[onField] = true;
     save();
     evaluateAlerts();
 }
@@ -1336,24 +1493,24 @@ function itemStatus(item) {
     if (item.totalSellQty == null) return { level: 'ok', reasons: ['No data'] };
 
     // Min stock threshold
-    if (item.minStock > 0 && item.totalSellQty < item.minStock) {
+    if (item.minStockOn && item.minStock > 0 && item.totalSellQty < item.minStock) {
         escalate('alert', `Stock ${fmtNum(item.totalSellQty)} < min ${fmtNum(item.minStock)}`);
-    } else if (item.minStock > 0 && item.totalSellQty < item.minStock * 1.2) {
+    } else if (item.minStockOn && item.minStock > 0 && item.totalSellQty < item.minStock * 1.2) {
         escalate('warn', `Stock approaching minimum`);
     }
 
     // Price floor (alert if lowest sell dropped below floor)
-    if (item.priceFloor > 0 && item.lowestSell != null && item.lowestSell < item.priceFloor) {
+    if (item.priceFloorOn && item.priceFloor > 0 && item.lowestSell != null && item.lowestSell < item.priceFloor) {
         escalate('alert', `Sell ${fmtIsk(item.lowestSell)} below floor ${fmtIsk(item.priceFloor)}`);
     }
 
     // Price ceiling (alert if lowest sell exceeds ceiling — someone's price gouging your resupply)
-    if (item.priceCeiling > 0 && item.lowestSell != null && item.lowestSell > item.priceCeiling) {
+    if (item.priceCeilingOn && item.priceCeiling > 0 && item.lowestSell != null && item.lowestSell > item.priceCeiling) {
         escalate('alert', `Sell ${fmtIsk(item.lowestSell)} above ceiling ${fmtIsk(item.priceCeiling)}`);
     }
 
     // Days supply
-    if (item.daysSupply > 0 && item.dailyVolume > 0) {
+    if (item.daysSupplyOn && item.daysSupply > 0 && item.dailyVolume > 0) {
         const daysLeft = item.totalSellQty / item.dailyVolume;
         if (daysLeft < item.daysSupply) {
             escalate('alert', `${daysLeft.toFixed(1)}d supply < target ${item.daysSupply}d`);
@@ -1456,11 +1613,26 @@ function renderMarketCard(market) {
 }
 
 function renderItemsTable(market) {
-    if (market.items.length === 0) return '<div class="empty-hint">No items tracked. Add one below.</div>';
+    if (market.items.length === 0) return '<div class="empty-hint">No items tracked. Add one or paste a list below.</div>';
     const rows = market.items.map(item => {
+        migrateItem(item);
         const status = itemStatus(item);
         const daysLeft = (item.dailyVolume > 0 && item.totalSellQty != null)
             ? (item.totalSellQty / item.dailyVolume).toFixed(1) + 'd' : '—';
+        const thresholdCell = (field, value, width) => {
+            const onField = field + 'On';
+            const isOn = !!item[onField];
+            return `<td>
+                <div class="threshold-cell">
+                    <button class="toggle-btn ${isOn ? 'on' : 'off'}"
+                            data-toggle="${onField}" data-item="${item.typeId}" data-market="${market.id}"
+                            title="${isOn ? 'Disable' : 'Enable'} this threshold">${isOn ? '●' : '○'}</button>
+                    <input type="number" value="${value}"
+                           data-edit="${field}" data-item="${item.typeId}" data-market="${market.id}"
+                           class="${isOn ? '' : 'disabled-input'}" style="width:${width};">
+                </div>
+            </td>`;
+        };
         return `
         <tr class="${status.level}">
             <td class="item-name">${escapeHtml(item.typeName)}</td>
@@ -1469,10 +1641,10 @@ function renderItemsTable(market) {
             <td class="num">${fmtIsk(item.highestBuy)}</td>
             <td class="num">${fmtNum(item.dailyVolume)}</td>
             <td class="num">${daysLeft}</td>
-            <td><input type="number" value="${item.minStock}" data-edit="minStock" data-item="${item.typeId}" data-market="${market.id}" style="width:80px;"></td>
-            <td><input type="number" value="${item.priceFloor}" data-edit="priceFloor" data-item="${item.typeId}" data-market="${market.id}" style="width:90px;"></td>
-            <td><input type="number" value="${item.priceCeiling}" data-edit="priceCeiling" data-item="${item.typeId}" data-market="${market.id}" style="width:90px;"></td>
-            <td><input type="number" value="${item.daysSupply}" data-edit="daysSupply" data-item="${item.typeId}" data-market="${market.id}" style="width:60px;"></td>
+            ${thresholdCell('minStock', item.minStock, '80px')}
+            ${thresholdCell('priceFloor', item.priceFloor, '90px')}
+            ${thresholdCell('priceCeiling', item.priceCeiling, '90px')}
+            ${thresholdCell('daysSupply', item.daysSupply, '60px')}
             <td class="status-cell">${status.level === 'ok' ? '●' : status.level === 'warn' ? '▲' : '✕'} ${status.reasons.join('; ') || 'OK'}</td>
             <td><button class="mini-btn btn-danger" data-remove-item="${market.id}|${item.typeId}">✕</button></td>
         </tr>`;
@@ -1503,27 +1675,36 @@ function renderItemsTable(market) {
 function renderAddItemForm(market) {
     return `
     <div class="add-item-row" data-add-row="${market.id}">
-        <div>
-            <label>Item Name</label>
-            <input type="text" placeholder="e.g. Mechanical Parts" data-add-field="typeName">
+        <div style="grid-column: 1 / -1;">
+            <label>Add Single Item</label>
         </div>
         <div>
-            <label>Min Stock</label>
-            <input type="number" placeholder="0" data-add-field="minStock">
+            <input type="text" placeholder="Item name (e.g. Mechanical Parts)" data-add-field="typeName">
         </div>
         <div>
-            <label>Price Floor</label>
-            <input type="number" placeholder="0" data-add-field="priceFloor">
+            <input type="number" placeholder="Min Stock" data-add-field="minStock">
         </div>
         <div>
-            <label>Price Ceiling</label>
-            <input type="number" placeholder="0" data-add-field="priceCeiling">
+            <input type="number" placeholder="Floor" data-add-field="priceFloor">
         </div>
         <div>
-            <label>Target Days</label>
-            <input type="number" placeholder="0" data-add-field="daysSupply">
+            <input type="number" placeholder="Ceiling" data-add-field="priceCeiling">
         </div>
-        <button data-add-item="${market.id}" class="btn-primary">Add Item</button>
+        <div>
+            <input type="number" placeholder="Tgt Days" data-add-field="daysSupply">
+        </div>
+        <button data-add-item="${market.id}" class="btn-primary">Add</button>
+    </div>
+    <div class="bulk-add-row">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="margin-bottom:0;">Bulk Add (Multibuy Format)</label>
+            <span class="hint" style="margin-top:0;">Paste from EVE: Item Name [tab] Quantity per line. Quantity is ignored; items are added with no thresholds.</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr auto; gap:8px; align-items:stretch;">
+            <textarea data-bulk-paste="${market.id}" rows="4" placeholder="Mechanical Parts&#9;100&#10;Consumer Electronics&#9;50&#10;Coolant&#9;200"
+                style="background:var(--bg-0); border:1px solid var(--border); color:var(--text-0); padding:8px; font-family:Consolas,monospace; font-size:12px; resize:vertical;"></textarea>
+            <button data-bulk-add="${market.id}" class="btn-primary" style="align-self:stretch; min-width:120px;">Add All</button>
+        </div>
     </div>`;
 }
 
@@ -1586,6 +1767,30 @@ function bindMarketCardEvents() {
                 priceCeiling: parseFloat(fields.priceCeiling) || 0,
                 daysSupply: parseFloat(fields.daysSupply) || 0,
             });
+        });
+    });
+    document.querySelectorAll('[data-toggle]').forEach(el => {
+        el.addEventListener('click', () => {
+            const field = el.getAttribute('data-toggle');
+            const marketId = el.getAttribute('data-market');
+            const typeId = parseInt(el.getAttribute('data-item'), 10);
+            const market = state.markets.find(m => m.id === marketId);
+            if (!market) return;
+            const item = market.items.find(i => i.typeId === typeId);
+            if (!item) return;
+            item[field] = !item[field];
+            save();
+            render();
+        });
+    });
+    document.querySelectorAll('[data-bulk-add]').forEach(el => {
+        el.addEventListener('click', () => {
+            const marketId = el.getAttribute('data-bulk-add');
+            const ta = document.querySelector(`[data-bulk-paste="${marketId}"]`);
+            if (!ta || !ta.value.trim()) { alert('Paste some items first.'); return; }
+            const text = ta.value;
+            ta.value = '';
+            bulkAddItemsToMarket(marketId, text);
         });
     });
 }
