@@ -380,9 +380,41 @@
     tbody tr:hover {
         background: rgba(255, 166, 43, 0.10) !important;
     }
-    tr.alert td.status-cell { color: var(--red); font-weight: 600; }
-    tr.warn td.status-cell { color: var(--yellow); font-weight: 600; }
-    tr.ok td.status-cell { color: var(--green); }
+    /* Individual cell breach — overrides row color so the bad cell pops. */
+    td.cell-breach {
+        background: rgba(248, 113, 113, 0.28) !important;
+        color: #ffe1e1;
+        font-weight: 600;
+    }
+    td.cell-breach input {
+        background: rgba(248, 113, 113, 0.15);
+        border-color: var(--red);
+        color: #ffe1e1;
+    }
+    /* Simplified status cell — narrow, just OK or Restock */
+    td.status-cell {
+        font-family: var(--font-sans);
+        font-weight: 500;
+        font-size: 11px;
+        text-align: center;
+        white-space: nowrap;
+    }
+    td.status-cell.status-ok { color: var(--green); }
+    td.status-cell.status-restock {
+        color: #ffe1e1;
+        background: var(--red);
+    }
+    /* Sell Avg and Buy Avg need ~70px minimum to fit "18,200/d" on one line */
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(9), td:nth-child(9) {
+        min-width: 80px;
+        white-space: nowrap;
+    }
+    /* Status column deliberately narrow */
+    th:nth-child(14), td:nth-child(14) {
+        min-width: 64px;
+        width: 64px;
+    }
     .item-name {
         font-family: var(--font-sans);
         font-size: 12px;
@@ -1922,32 +1954,37 @@ async function refreshAll() {
 
 /* ---------------- Alert evaluation ---------------- */
 function itemStatus(item) {
-    // returns {level: 'ok'|'warn'|'alert', reasons: []}
+    // returns {level, reasons, breaches}
+    //   level: 'ok' | 'warn' | 'alert'
+    //   breaches: Set of field names that are currently breached
+    //     ('minStock', 'priceFloor', 'priceCeiling', 'daysSupply')
     const reasons = [];
+    const breaches = new Set();
     let level = 'ok';
-    const escalate = (newLevel, reason) => {
+    const escalate = (newLevel, reason, field) => {
         reasons.push(reason);
+        if (field) breaches.add(field);
         if (newLevel === 'alert') level = 'alert';
         else if (newLevel === 'warn' && level !== 'alert') level = 'warn';
     };
 
-    if (item.totalSellQty == null) return { level: 'ok', reasons: ['No data'] };
+    if (item.totalSellQty == null) return { level: 'ok', reasons: ['No data'], breaches };
 
     // Min stock threshold
     if (item.minStockOn && item.minStock > 0 && item.totalSellQty < item.minStock) {
-        escalate('alert', `Stock ${fmtNum(item.totalSellQty)} < min ${fmtNum(item.minStock)}`);
+        escalate('alert', `Stock ${fmtNum(item.totalSellQty)} < min ${fmtNum(item.minStock)}`, 'minStock');
     } else if (item.minStockOn && item.minStock > 0 && item.totalSellQty < item.minStock * 1.2) {
-        escalate('warn', `Stock approaching minimum`);
+        escalate('warn', `Stock approaching minimum`, 'minStock');
     }
 
     // Price floor (alert if lowest sell dropped below floor)
     if (item.priceFloorOn && item.priceFloor > 0 && item.lowestSell != null && item.lowestSell < item.priceFloor) {
-        escalate('alert', `Sell ${fmtIsk(item.lowestSell)} below floor ${fmtIsk(item.priceFloor)}`);
+        escalate('alert', `Sell ${fmtIsk(item.lowestSell)} below floor ${fmtIsk(item.priceFloor)}`, 'priceFloor');
     }
 
     // Price ceiling (alert if lowest sell exceeds ceiling — someone's price gouging your resupply)
     if (item.priceCeilingOn && item.priceCeiling > 0 && item.lowestSell != null && item.lowestSell > item.priceCeiling) {
-        escalate('alert', `Sell ${fmtIsk(item.lowestSell)} above ceiling ${fmtIsk(item.priceCeiling)}`);
+        escalate('alert', `Sell ${fmtIsk(item.lowestSell)} above ceiling ${fmtIsk(item.priceCeiling)}`, 'priceCeiling');
     }
 
     // Days supply
@@ -1955,13 +1992,13 @@ function itemStatus(item) {
     if (item.daysSupplyOn && item.daysSupply > 0 && daily > 0) {
         const daysLeft = item.totalSellQty / daily;
         if (daysLeft < item.daysSupply) {
-            escalate('alert', `${daysLeft.toFixed(1)}d supply < target ${item.daysSupply}d`);
+            escalate('alert', `${daysLeft.toFixed(1)}d supply < target ${item.daysSupply}d`, 'daysSupply');
         } else if (daysLeft < item.daysSupply * 1.3) {
-            escalate('warn', `Supply runway tight (${daysLeft.toFixed(1)}d)`);
+            escalate('warn', `Supply runway tight (${daysLeft.toFixed(1)}d)`, 'daysSupply');
         }
     }
 
-    return { level, reasons };
+    return { level, reasons, breaches };
 }
 
 function evaluateAlerts() {
@@ -2137,7 +2174,8 @@ function renderItemsTable(market) {
             const onField = field + 'On';
             const isOn = !!item[onField];
             const disabled = locked ? 'disabled' : '';
-            return `<td>
+            const breachClass = status.breaches.has(field) ? 'cell-breach' : '';
+            return `<td class="${breachClass}">
                 <div class="threshold-cell">
                     <button class="toggle-btn ${isOn ? 'on' : 'off'}"
                             data-threshold-toggle="${onField}" data-item="${item.typeId}" data-market="${market.id}"
@@ -2150,12 +2188,7 @@ function renderItemsTable(market) {
                 </div>
             </td>`;
         };
-        // Six market columns: Sell Price | Sell Volume (stock at station) | Sell Avg (regional daily trade)
-        //                     Buy Price  | Buy Volume (demand at station) | Buy Avg (same as Sell Avg)
-        // Note: Sell Avg and Buy Avg both come from the same /markets/history endpoint —
-        // ESI doesn't split historical trading volume by order type. So both columns show
-        // the same daily-traded figure for the selected window. They're shown separately
-        // for layout symmetry and to make runway calculations easy to read per side.
+
         const sellPrice = item.lowestSell == null
             ? '<span style="color:var(--text-2);">—</span>'
             : fmtIsk(item.lowestSell);
@@ -2174,20 +2207,36 @@ function renderItemsTable(market) {
         const buyVol = item.totalBuyQty == null
             ? '<span style="color:var(--text-2);">—</span>'
             : fmtNum(item.totalBuyQty);
-        const buyAvg = sellAvg; // same regional figure — see note above
+        const buyAvg = sellAvg; // same regional figure
+
+        // Map breaches → data cell classes
+        // minStock breach → Sell Volume cell red
+        // priceFloor/priceCeiling breach → Sell Price cell red
+        // daysSupply breach → Sell Days cell red
+        const cellBreach = (f) => status.breaches.has(f) ? 'cell-breach' : '';
+        const sellPriceClass = (status.breaches.has('priceFloor') || status.breaches.has('priceCeiling')) ? 'cell-breach' : '';
+        const sellVolClass = cellBreach('minStock');
+        const sellDaysClass = cellBreach('daysSupply');
+
         const lockBtn = `<button class="lock-btn ${locked ? 'locked' : 'unlocked'}"
                             data-lock-item="${market.id}|${item.typeId}"
                             title="${locked ? 'Unlock row' : 'Lock row (prevents changes)'}">${locked ? '🔒' : '🔓'}</button>`;
         const removeBtn = locked
             ? `<button class="mini-btn btn-danger" disabled title="Row locked">✕</button>`
             : `<button class="mini-btn btn-danger" data-remove-item="${market.id}|${item.typeId}">✕</button>`;
+
+        // Simplified status: OK or Restock. Tooltip shows reasons.
+        const statusLabel = status.level === 'ok' ? 'OK' : 'Restock';
+        const statusClass = status.level === 'ok' ? 'status-ok' : 'status-restock';
+        const statusTooltip = status.reasons.length ? status.reasons.join('; ').replace(/"/g, '&quot;') : 'All thresholds met';
+
         return `
         <tr class="${status.level} ${locked ? 'row-locked' : ''}">
             <td>${lockBtn}</td>
             <td class="item-name">${escapeHtml(item.typeName)}</td>
-            <td class="num">${sellPrice}</td>
-            <td class="num">${sellVol}</td>
-            <td class="num">${sellDays}</td>
+            <td class="num ${sellPriceClass}">${sellPrice}</td>
+            <td class="num ${sellVolClass}">${sellVol}</td>
+            <td class="num ${sellDaysClass}">${sellDays}</td>
             <td class="num">${sellAvg}</td>
             <td class="num">${buyPrice}</td>
             <td class="num">${buyVol}</td>
@@ -2196,7 +2245,7 @@ function renderItemsTable(market) {
             ${thresholdCell('priceFloor', item.priceFloor, '90px')}
             ${thresholdCell('priceCeiling', item.priceCeiling, '90px')}
             ${thresholdCell('daysSupply', item.daysSupply, '60px')}
-            <td class="status-cell">${status.level === 'ok' ? '●' : status.level === 'warn' ? '▲' : '✕'} ${status.reasons.join('; ') || 'OK'}</td>
+            <td class="status-cell ${statusClass}" title="${statusTooltip}">${statusLabel}</td>
             <td>${removeBtn}</td>
         </tr>`;
     }).join('');
