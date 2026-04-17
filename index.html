@@ -451,6 +451,127 @@
         color: var(--bg-0);
         border-color: var(--amber);
     }
+    .global-thresholds {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-2);
+    }
+    .global-thresholds button {
+        padding: 3px 10px;
+        font-size: 10px;
+        position: relative;
+    }
+    .global-thresholds button.on {
+        background: var(--amber);
+        color: var(--bg-0);
+        border-color: var(--amber);
+    }
+    .global-thresholds button.on::before {
+        content: '✓ ';
+    }
+    .global-thresholds button.off {
+        color: var(--text-2);
+    }
+    .global-thresholds button.off::before {
+        content: '✗ ';
+    }
+    .global-thresholds button.mixed {
+        border-color: var(--yellow);
+        color: var(--yellow);
+        border-style: dashed;
+    }
+    .global-thresholds button.mixed::before {
+        content: '◐ ';
+    }
+    /* Per-station globals bar (lives inside each market card body) */
+    .market-globals {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        padding: 8px 10px;
+        background: var(--bg-3);
+        border: 1px solid var(--border);
+        margin-bottom: 10px;
+    }
+    .market-globals button {
+        padding: 4px 12px;
+        font-size: 10px;
+        font-family: "Consolas", monospace;
+        letter-spacing: 1px;
+    }
+    .market-globals button .mark {
+        display: inline-block;
+        width: 12px;
+        text-align: center;
+        margin-right: 2px;
+    }
+    .market-globals button.on {
+        background: var(--amber);
+        color: var(--bg-0);
+        border-color: var(--amber);
+    }
+    .market-globals button.on:hover {
+        background: #ffb849;
+    }
+    .market-globals button.off {
+        color: var(--text-2);
+    }
+    .market-globals button.off:hover {
+        color: var(--amber);
+        border-color: var(--amber);
+    }
+    .market-globals button.mixed {
+        border-color: var(--yellow);
+        color: var(--yellow);
+        border-style: dashed;
+    }
+    .market-globals button.mixed:hover {
+        background: rgba(251, 191, 36, 0.08);
+    }
+    /* Lock button per row */
+    .lock-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-2);
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .lock-btn:hover {
+        border-color: var(--amber);
+        color: var(--amber);
+    }
+    .lock-btn.locked {
+        border-color: var(--cyan);
+        color: var(--cyan);
+        background: rgba(74, 214, 255, 0.08);
+    }
+    .lock-btn.locked:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+        background: rgba(74, 214, 255, 0.15);
+    }
+    /* Locked row styling — muted but still readable */
+    tr.row-locked td:not(:first-child) {
+        opacity: 0.65;
+    }
+    tr.row-locked input[disabled],
+    tr.row-locked button[disabled] {
+        cursor: not-allowed;
+    }
+    tr.row-locked input[disabled] {
+        color: var(--text-2);
+    }
     .col-sub {
         font-size: 9px;
         color: var(--text-2);
@@ -1444,6 +1565,8 @@ async function bulkAddItemsToMarket(marketId, text) {
 function removeItem(marketId, typeId) {
     const market = state.markets.find(m => m.id === marketId);
     if (!market) return;
+    const item = market.items.find(i => i.typeId === typeId);
+    if (item && item.locked) return; // safety: locked rows can't be removed
     market.items = market.items.filter(i => i.typeId !== typeId);
     save();
     render();
@@ -1549,7 +1672,7 @@ function updateItemThresholds(marketId, typeId, field, value) {
     const market = state.markets.find(m => m.id === marketId);
     if (!market) return;
     const item = market.items.find(i => i.typeId === typeId);
-    if (!item) return;
+    if (!item || item.locked) return;
     const num = parseFloat(value) || 0;
     item[field] = num;
     // Auto-enable the matching toggle if user typed a non-zero value
@@ -1751,6 +1874,7 @@ function render() {
         list.innerHTML = '<div class="empty-hint">No markets yet. Add one above to start monitoring.</div>';
         updateLastRefreshInfo();
         evaluateAlerts();
+        if (typeof updateGlobalThresholdUI === 'function') updateGlobalThresholdUI();
         return;
     }
 
@@ -1758,6 +1882,7 @@ function render() {
     bindMarketCardEvents();
     evaluateAlerts();
     updateLastRefreshInfo();
+    if (typeof updateGlobalThresholdUI === 'function') updateGlobalThresholdUI();
 }
 
 function renderMarketCard(market) {
@@ -1777,15 +1902,50 @@ function renderMarketCard(market) {
                 <button class="mini-btn" data-refresh="${market.id}">Refresh</button>
                 <button class="mini-btn btn-danger" data-remove-market="${market.id}">Remove</button>
                 <button class="mini-btn" data-copy-items="${market.id}" title="Copy item list (with thresholds) to clipboard">Copy Items</button>
-                <button class="mini-btn" data-paste-items="${market.id}" title="Paste copied items into this market">Paste Items</button>
             </div>
         </div>
         <div class="market-body ${collapsed}">
+            ${renderMarketGlobalsBar(market)}
             ${renderItemsTable(market)}
             ${renderAddItemForm(market)}
         </div>
     </div>
     `;
+}
+
+function renderMarketGlobalsBar(market) {
+    // Per-market global threshold toggles. State = majority across UNLOCKED items only
+    // (locked items don't count since they won't change anyway).
+    const fields = [
+        { key: 'minStockOn', label: 'Min Stock' },
+        { key: 'priceFloorOn', label: 'Floor' },
+        { key: 'priceCeilingOn', label: 'Ceiling' },
+        { key: 'daysSupplyOn', label: 'Tar Days' },
+    ];
+    const btns = fields.map(f => {
+        let onCount = 0, total = 0;
+        for (const it of market.items) {
+            if (it.locked) continue;
+            total++;
+            if (it[f.key]) onCount++;
+        }
+        let cls = 'off';
+        let mark = '✗';
+        if (total === 0) { cls = 'off'; mark = '✗'; }
+        else if (onCount === total) { cls = 'on'; mark = '✓'; }
+        else if (onCount === 0) { cls = 'off'; mark = '✗'; }
+        else { cls = 'mixed'; mark = '◐'; }
+        const lockedCount = market.items.filter(it => it.locked).length;
+        const lockSuffix = lockedCount > 0 ? ` (${lockedCount} locked)` : '';
+        return `<button class="${cls}" data-market-global="${market.id}" data-field="${f.key}"
+            title="${f.label} — ${onCount}/${total} unlocked items enabled${lockSuffix}">
+            <span class="mark">${mark}</span> ${f.label}
+        </button>`;
+    }).join('');
+    return `<div class="market-globals">
+        <span class="vol-label">STATION GLOBALS:</span>
+        ${btns}
+    </div>`;
 }
 
 function renderItemsTable(market) {
@@ -1797,49 +1957,66 @@ function renderItemsTable(market) {
         const daily = itemDailyVolume(item);
         const daysLeft = (daily > 0 && item.totalSellQty != null)
             ? (item.totalSellQty / daily).toFixed(1) + 'd' : '—';
+        const locked = !!item.locked;
         const thresholdCell = (field, value, width) => {
             const onField = field + 'On';
             const isOn = !!item[onField];
+            const disabled = locked ? 'disabled' : '';
             return `<td>
                 <div class="threshold-cell">
                     <button class="toggle-btn ${isOn ? 'on' : 'off'}"
                             data-threshold-toggle="${onField}" data-item="${item.typeId}" data-market="${market.id}"
-                            title="${isOn ? 'Disable' : 'Enable'} this threshold">${isOn ? '✓' : '✗'}</button>
+                            ${disabled}
+                            title="${locked ? 'Row locked' : (isOn ? 'Disable' : 'Enable') + ' this threshold'}">${isOn ? '✓' : '✗'}</button>
                     <input type="number" value="${value}"
                            data-edit="${field}" data-item="${item.typeId}" data-market="${market.id}"
-                           class="${isOn ? '' : 'disabled-input'}" style="width:${width};">
+                           class="${isOn ? '' : 'disabled-input'}" style="width:${width};"
+                           ${disabled}>
                 </div>
             </td>`;
         };
-        // Sell cell: lowest price with qty sub-line; Buy cell: highest price
-        const sellCell = item.lowestSell == null
+        // Sell Price, Sell Volume (qty + days), Buy (unchanged: price + vol/d)
+        const sellPrice = item.lowestSell == null
             ? '<span style="color:var(--text-2);">—</span>'
-            : `<div>${fmtIsk(item.lowestSell)}</div>
-               <div class="sub-qty">${fmtNum(item.totalSellQty)} @ ${daysLeft}</div>`;
+            : fmtIsk(item.lowestSell);
+        const sellVol = item.totalSellQty == null
+            ? '<span style="color:var(--text-2);">—</span>'
+            : `<div>${fmtNum(item.totalSellQty)}</div>
+               <div class="sub-qty">${daysLeft}</div>`;
         const buyCell = item.highestBuy == null
             ? '<span style="color:var(--text-2);">—</span>'
             : `<div>${fmtIsk(item.highestBuy)}</div>
                <div class="sub-qty">${fmtNum(daily)}/d</div>`;
+        const lockBtn = `<button class="lock-btn ${locked ? 'locked' : 'unlocked'}"
+                            data-lock-item="${market.id}|${item.typeId}"
+                            title="${locked ? 'Unlock row' : 'Lock row (prevents changes)'}">${locked ? '🔒' : '🔓'}</button>`;
+        const removeBtn = locked
+            ? `<button class="mini-btn btn-danger" disabled title="Row locked">✕</button>`
+            : `<button class="mini-btn btn-danger" data-remove-item="${market.id}|${item.typeId}">✕</button>`;
         return `
-        <tr class="${status.level}">
+        <tr class="${status.level} ${locked ? 'row-locked' : ''}">
+            <td>${lockBtn}</td>
             <td class="item-name">${escapeHtml(item.typeName)}</td>
-            <td class="num">${sellCell}</td>
+            <td class="num">${sellPrice}</td>
+            <td class="num">${sellVol}</td>
             <td class="num">${buyCell}</td>
             ${thresholdCell('minStock', item.minStock, '80px')}
             ${thresholdCell('priceFloor', item.priceFloor, '90px')}
             ${thresholdCell('priceCeiling', item.priceCeiling, '90px')}
             ${thresholdCell('daysSupply', item.daysSupply, '60px')}
             <td class="status-cell">${status.level === 'ok' ? '●' : status.level === 'warn' ? '▲' : '✕'} ${status.reasons.join('; ') || 'OK'}</td>
-            <td><button class="mini-btn btn-danger" data-remove-item="${market.id}|${item.typeId}">✕</button></td>
+            <td>${removeBtn}</td>
         </tr>`;
     }).join('');
     return `
     <table>
         <thead>
             <tr>
+                <th></th>
                 <th>Item</th>
-                <th class="num">Sell <span class="col-sub">(low · qty · days)</span></th>
-                <th class="num">Buy <span class="col-sub">(high · vol/${window}d)</span></th>
+                <th class="num">Sell Price</th>
+                <th class="num">Sell Volume <span class="col-sub">(qty · days)</span></th>
+                <th class="num">Buy <span class="col-sub">(price · vol/${window}d)</span></th>
                 <th>Min Stock</th>
                 <th>Floor</th>
                 <th>Ceiling</th>
@@ -1958,8 +2135,45 @@ function bindMarketCardEvents() {
             const market = state.markets.find(m => m.id === marketId);
             if (!market) return;
             const item = market.items.find(i => i.typeId === typeId);
-            if (!item) return;
+            if (!item || item.locked) return;
             item[field] = !item[field];
+            save();
+            render();
+        });
+    });
+    document.querySelectorAll('[data-lock-item]').forEach(el => {
+        el.addEventListener('click', () => {
+            const [mid, tid] = el.getAttribute('data-lock-item').split('|');
+            const market = state.markets.find(m => m.id === mid);
+            if (!market) return;
+            const item = market.items.find(i => i.typeId === parseInt(tid, 10));
+            if (!item) return;
+            item.locked = !item.locked;
+            save();
+            render();
+        });
+    });
+    // Per-market global threshold — stamps all UNLOCKED items to a new state.
+    document.querySelectorAll('[data-market-global]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const marketId = btn.getAttribute('data-market-global');
+            const field = btn.getAttribute('data-field');
+            const market = state.markets.find(m => m.id === marketId);
+            if (!market) return;
+            // Determine majority state across unlocked items; flip it.
+            let onCount = 0, total = 0;
+            for (const it of market.items) {
+                if (it.locked) continue;
+                total++;
+                if (it[field]) onCount++;
+            }
+            if (total === 0) return; // everything is locked; nothing to do
+            const majorityOn = onCount >= Math.ceil(total / 2);
+            const newState = !majorityOn;
+            for (const it of market.items) {
+                if (it.locked) continue;
+                it[field] = newState;
+            }
             save();
             render();
         });
@@ -1968,12 +2182,6 @@ function bindMarketCardEvents() {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             copyItemsFromMarket(el.getAttribute('data-copy-items'));
-        });
-    });
-    document.querySelectorAll('[data-paste-items]').forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.stopPropagation();
-            pasteItemsIntoMarket(el.getAttribute('data-paste-items'));
         });
     });
     document.querySelectorAll('[data-bulk-add]').forEach(el => {
@@ -2350,6 +2558,13 @@ function updateVolWindowUI() {
         const val = parseInt(btn.getAttribute('data-vol-window'), 10);
         btn.classList.toggle('active', val === current);
     });
+}
+
+// Global threshold buttons are now per-market, rendered inside each card body
+// and bound in bindMarketCardEvents(). The old app-level bindings have been removed.
+function updateGlobalThresholdUI() {
+    // No-op — kept as a stub so older call sites don't throw.
+    // Per-market globals are re-rendered on every render() call.
 }
 document.getElementById('exportBtn').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
