@@ -409,12 +409,21 @@
            don't pass the scroll momentum to the page/market card. */
         overscroll-behavior: contain;
     }
+    /* Non-scrollable tables: thead sticks to the viewport just below the station globals.
+       The 92px top = 46px card header + 46px globals (approximate combined height). */
+    .items-table-wrap thead th {
+        position: sticky;
+        top: 92px;
+        z-index: 10;
+        background: var(--bg-3);
+        box-shadow: inset 0 -1px 0 var(--border);
+    }
+    /* Scrollable tables override: thead sticks inside the scroll container at top:0, not to viewport. */
     .items-table-wrap.scrollable thead th {
         position: sticky;
         top: 0;
         z-index: 5;
         background: var(--bg-3);
-        /* Sticky headers need the bottom border reinforced because border-collapse eats it */
         box-shadow: inset 0 -1px 0 var(--border);
     }
     /* Custom scrollbar for the scrollable container */
@@ -687,6 +696,11 @@
         background: var(--bg-2);
         border: 1px solid var(--border);
         margin-bottom: 10px;
+        /* Sticky second-tier: sits just below the sticky market-card-header.
+           The 46px offset matches the card header's approximate rendered height. */
+        position: sticky;
+        top: 46px;
+        z-index: 15;
     }
     .market-globals button {
         padding: 4px 12px;
