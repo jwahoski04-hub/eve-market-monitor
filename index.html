@@ -2687,14 +2687,17 @@ function renderItemsTable(market) {
             const isOn = !!item[onField];
             const disabled = locked ? 'disabled' : '';
             const breachClass = status.breaches.has(field) ? 'cell-breach' : '';
+            const displayValue = (value == null || value === '') ? '' : fmtNum(Number(value));
+            const titleValue = (value == null || value === '') ? '' : fmtNum(Number(value));
             return `<td class="${breachClass}">
                 <div class="threshold-cell">
                     <button class="toggle-btn ${isOn ? 'on' : 'off'}"
                             data-threshold-toggle="${onField}" data-item="${item.typeId}" data-market="${market.id}"
                             ${disabled}
                             title="${locked ? 'Row locked' : (isOn ? 'Disable' : 'Enable') + ' this threshold'}">${isOn ? '✓' : '✗'}</button>
-                    <input type="number" value="${value}"
+                    <input type="text" inputmode="decimal" value="${displayValue}" title="${titleValue}"
                            data-edit="${field}" data-item="${item.typeId}" data-market="${market.id}"
+                           data-numeric-input
                            class="${isOn ? '' : 'disabled-input'}" style="width:${width};"
                            ${disabled}>
                 </div>
@@ -2815,16 +2818,16 @@ function renderAddItemForm(market) {
             <div class="autocomplete-results item-autocomplete-results" data-item-results="${market.id}"></div>
         </div>
         <div>
-            <input type="number" placeholder="Min Stock" data-add-field="minStock">
+            <input type="text" inputmode="decimal" placeholder="Min Stock" data-add-field="minStock" data-numeric-input>
         </div>
         <div>
-            <input type="number" placeholder="Floor" data-add-field="priceFloor">
+            <input type="text" inputmode="decimal" placeholder="Floor" data-add-field="priceFloor" data-numeric-input>
         </div>
         <div>
-            <input type="number" placeholder="Ceiling" data-add-field="priceCeiling">
+            <input type="text" inputmode="decimal" placeholder="Ceiling" data-add-field="priceCeiling" data-numeric-input>
         </div>
         <div>
-            <input type="number" placeholder="Tgt Days" data-add-field="daysSupply">
+            <input type="text" inputmode="decimal" placeholder="Tgt Days" data-add-field="daysSupply" data-numeric-input>
         </div>
         <button data-add-item="${market.id}" class="btn-primary">Add</button>
     </div>
@@ -2876,11 +2879,14 @@ function bindMarketCardEvents() {
     });
     document.querySelectorAll('[data-edit]').forEach(el => {
         el.addEventListener('change', () => {
+            const raw = String(el.value || '').replace(/,/g, '').trim();
+            const n = raw === '' ? 0 : Number(raw);
+            const safe = (isNaN(n) ? 0 : n);
             updateItemThresholds(
                 el.getAttribute('data-market'),
                 parseInt(el.getAttribute('data-item'), 10),
                 el.getAttribute('data-edit'),
-                el.value
+                safe
             );
             render();
         });
@@ -2894,12 +2900,38 @@ function bindMarketCardEvents() {
                 fields[f.getAttribute('data-add-field')] = f.value;
             });
             if (!fields.typeName.trim()) { alert('Enter an item name.'); return; }
+            const stripCommas = s => String(s || '').replace(/,/g, '').trim();
             addItemToMarket(marketId, fields.typeName.trim(), {
-                minStock: parseFloat(fields.minStock) || 0,
-                priceFloor: parseFloat(fields.priceFloor) || 0,
-                priceCeiling: parseFloat(fields.priceCeiling) || 0,
-                daysSupply: parseFloat(fields.daysSupply) || 0,
+                minStock: parseFloat(stripCommas(fields.minStock)) || 0,
+                priceFloor: parseFloat(stripCommas(fields.priceFloor)) || 0,
+                priceCeiling: parseFloat(stripCommas(fields.priceCeiling)) || 0,
+                daysSupply: parseFloat(stripCommas(fields.daysSupply)) || 0,
             });
+        });
+    });
+    // Universal numeric-input behavior: commas allowed; strip on focus, reformat on blur, keep tooltip in sync
+    document.querySelectorAll('[data-numeric-input]').forEach(el => {
+        // Initialize tooltip from current value
+        const syncTitle = () => {
+            const raw = String(el.value || '').replace(/,/g, '').trim();
+            const n = raw === '' ? null : Number(raw);
+            el.title = (n != null && !isNaN(n)) ? n.toLocaleString('en-US') : '';
+        };
+        syncTitle();
+        el.addEventListener('focus', () => {
+            // Strip commas while editing so cursor behaves naturally
+            const raw = String(el.value || '').replace(/,/g, '');
+            if (el.value !== raw) el.value = raw;
+        });
+        el.addEventListener('input', syncTitle);
+        el.addEventListener('blur', () => {
+            const raw = String(el.value || '').replace(/,/g, '').trim();
+            if (raw === '') { el.title = ''; return; }
+            const n = Number(raw);
+            if (!isNaN(n)) {
+                el.value = n.toLocaleString('en-US');
+                el.title = el.value;
+            }
         });
     });
     document.querySelectorAll('[data-threshold-toggle]').forEach(el => {
