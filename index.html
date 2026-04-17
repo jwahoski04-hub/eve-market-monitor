@@ -1230,7 +1230,7 @@
             <h3>Getting started</h3>
             <ol>
                 <li><b>Add a market.</b> In the top section, type a system name (autocomplete will help) and click <span class="help-btn">Find Markets</span>. Pick the station or structure you want to track. Player structures (Upwell/citadels) require EVE SSO login.</li>
-                <li><b>Add items to watch.</b> Each market card has an <b>Add Single Item</b> field with autocomplete — start typing and pick from the dropdown. Or use <b>Bulk Add</b> to paste an EVE multibuy list or a Copy Items payload from another station.</li>
+                <li><b>Add items to watch.</b> Each market card has an <b>Add Single Item</b> field with autocomplete — start typing and a dropdown appears showing matching items with their EVE icons. Click or use arrow keys + Enter to select. Or use <b>Bulk Add</b> to paste an EVE multibuy list or a Copy Items payload from another station.</li>
                 <li><b>Set thresholds.</b> Each item row has four thresholds you can toggle: Min Stock, Floor, Ceiling, and Target Days of supply. Toggle on with the green ✓, type a value, and the item turns into an alert if the live market breaks the rule.</li>
                 <li><b>Click <span class="help-btn">Refresh All</span>.</b> Fetches the latest orders and market history. Safe to click often.</li>
             </ol>
@@ -1274,9 +1274,31 @@
 
             <h3>Sorting and scrolling</h3>
             <ul>
-                <li><b>Click any column header</b> to sort ascending (↑), click again for descending (↓), click a third time to clear sort. Items without data sort to the bottom.</li>
-                <li><b>Stations with more than 20 items</b> automatically get a scrollable table with a sticky header, so column labels stay visible as you scroll.</li>
+                <li><b>Click any column header</b> to sort ascending (↑), click again for descending (↓), click a third time to clear sort and return to original order. Items without data (e.g., price or volume unavailable) always sort to the bottom regardless of direction.</li>
+                <li><b>Sort preferences persist</b> — each station remembers its own sort key and direction across page reloads.</li>
+                <li><b>Stations with more than 20 items</b> automatically get a scrollable table capped at ~600px tall with a custom themed scrollbar. Scrolling is contained: hitting the top or bottom of the table won't bleed into the page scroll.</li>
             </ul>
+
+            <h3>Navigation while scrolling</h3>
+            <p>When you scroll through a long market's items, three things stay pinned at the top of your screen so you never lose orientation:</p>
+            <ul>
+                <li><b>Market card header</b> (station name, badge, system/region, Refresh/Remove/Copy) — top tier</li>
+                <li><b>Station Globals bar</b> (lock-all, threshold stampers, status filter) — middle tier</li>
+                <li><b>Table column headers</b> (Item, Sell Price, Sell Volume, etc.) — bottom tier, still clickable for sorting</li>
+            </ul>
+            <p>You can always see which station you're in, what your global threshold state is, and which column each number belongs to — all while scrolling through hundreds of items. A subtle shadow appears below the pinned headers so they visually lift off the content below.</p>
+            <p><b>Auto-scroll on interaction:</b> when you click anywhere inside a market's items table, the page smoothly scrolls so that market's header is at the top of your screen. If you're already there, no scroll happens. Interacting with another market snaps to that one instead.</p>
+
+            <h3>Column organization</h3>
+            <p>The 15 columns are grouped into logical blocks separated by thicker vertical lines:</p>
+            <ul>
+                <li><b>Block 1 — Lock and Item</b> — row controls and item name</li>
+                <li><b>Block 2 — Sell side</b> — Sell Price, Sell Volume, Sell Days (runway)</li>
+                <li><b>Block 3 — Averages and Buy side</b> — Sell Avg, Buy Price, Buy Volume, Buy Avg</li>
+                <li><b>Block 4 — Thresholds</b> — Min Stock, Floor, Ceiling, Tar Days</li>
+                <li><b>Block 5 — Status and Remove</b> — alert state and delete button</li>
+            </ul>
+            <p>Zebra striping on OK rows and an amber hover highlight make it easy to track a single row across all 15 columns.</p>
 
             <h3>Volume window</h3>
             <p>Top-right of the page has a <b>1d / 7d / 30d</b> toggle that controls which average is used for <b>Sell Days</b> and <b>Sell Avg / Buy Avg</b>. Short window reacts faster to demand spikes; long window smooths out noise. 7d is usually the right default.</p>
@@ -1298,8 +1320,9 @@
             <ul>
                 <li><b>Structure shows "No access" or "Login for name"</b> — you need to be logged in with a character that has docking access to read that structure's name or market. Click <b>Log In with EVE</b> in the header.</li>
                 <li><b>Item autocomplete shows "still loading"</b> — on first page visit, the tool fetches ~13,000 market-active item names (takes about 10–15 seconds). After that it's cached for 30 days.</li>
-                <li><b>Min Stock toggle defaults to off on old items</b> — after the v2 schema update, existing items should auto-flip to on. If yours didn't, toggle it manually.</li>
+                <li><b>Sticky headers look misaligned</b> — the stacked sticky headers assume standard rendered heights. If your browser zoom is very high or low, the 46px/92px offsets may look slightly off. Normal browser zoom works fine.</li>
                 <li><b>Refresh seems slow</b> — stations with many items take longer because each item requires its own ESI history fetch. Structure markets pull all orders in one call and are usually faster.</li>
+                <li><b>Working across computers</b> — localStorage doesn't sync between devices or browsers. Use <b>Export</b> to download a JSON backup, then <b>Import</b> on the other computer. Saving the export file to a cloud-synced folder (Dropbox, Google Drive, OneDrive) makes this easy.</li>
             </ul>
 
             <h3>Credits</h3>
