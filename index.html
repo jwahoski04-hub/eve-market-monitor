@@ -394,6 +394,9 @@
         overflow-y: auto;
         overflow-x: hidden;
         border: 1px solid var(--border);
+        /* Prevent scroll chaining — when you hit top/bottom of this container,
+           don't pass the scroll momentum to the page/market card. */
+        overscroll-behavior: contain;
     }
     .items-table-wrap.scrollable thead th {
         position: sticky;
