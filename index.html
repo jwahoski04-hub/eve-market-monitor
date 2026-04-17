@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EVE Market Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
     :root {
         --bg-0: #07090d;
@@ -13,8 +16,8 @@
         --border: #22304a;
         --border-hot: #3a5580;
         --text-0: #e8eef7;
-        --text-1: #a8b5c8;
-        --text-2: #6b7a90;
+        --text-1: #b8c5d8;
+        --text-2: #8b9ab0;
         --amber: #ffa62b;
         --amber-dim: #8a5a14;
         --cyan: #4ad6ff;
@@ -23,12 +26,14 @@
         --red: #f87171;
         --yellow: #fbbf24;
         --purple: #a78bfa;
+        --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --font-mono: "JetBrains Mono", "SF Mono", Consolas, Monaco, monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
         background: var(--bg-0);
         color: var(--text-0);
-        font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+        font-family: var(--font-sans);
         font-size: 13px;
         min-height: 100vh;
         background-image:
@@ -189,9 +194,10 @@
         background: var(--bg-0);
         border: 1px solid var(--border);
         color: var(--text-0);
-        padding: 6px 10px;
-        font-family: "Consolas", monospace;
+        padding: 4px 8px;
+        font-family: var(--font-mono);
         font-size: 12px;
+        font-variant-numeric: tabular-nums;
         outline: none;
         transition: border-color 0.15s;
     }
@@ -200,11 +206,9 @@
     }
     label {
         display: block;
-        font-family: "Consolas", monospace;
-        font-size: 10px;
-        letter-spacing: 1px;
+        font-family: var(--font-sans);
+        font-size: 11px;
         color: var(--text-2);
-        text-transform: uppercase;
         margin-bottom: 4px;
     }
     /* Add-market form */
@@ -324,20 +328,27 @@
     }
     th {
         text-align: left;
-        padding: 8px 10px;
-        font-family: "Consolas", monospace;
-        font-size: 10px;
-        font-weight: 600;
-        color: var(--text-2);
-        letter-spacing: 1px;
-        text-transform: uppercase;
+        padding: 5px 8px;
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-1);
+        letter-spacing: 0.3px;
         border-bottom: 1px solid var(--border);
+        white-space: nowrap;
     }
     td {
-        padding: 8px 10px;
+        padding: 4px 8px;
         border-bottom: 1px solid var(--border);
-        font-family: "Consolas", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+    /* Item name cell gets sans font, not mono */
+    td.item-name {
+        font-family: var(--font-sans);
+        font-size: 12px;
+        font-weight: 500;
     }
     tr.ok { background: transparent; }
     tr.warn { background: rgba(251, 191, 36, 0.06); }
@@ -346,7 +357,7 @@
     tr.warn td.status-cell { color: var(--yellow); font-weight: 600; }
     tr.ok td.status-cell { color: var(--green); }
     .item-name {
-        font-family: "Segoe UI", sans-serif;
+        font-family: var(--font-sans);
         font-size: 12px;
         font-weight: 500;
         color: var(--text-0);
@@ -863,7 +874,7 @@
             <button id="logoutBtn" class="mini-btn" title="Log out">×</button>
         </span>
         <button id="loginBtn" class="btn-primary" style="display:none;">Log In with EVE</button>
-        <button id="refreshAllBtn">Refresh All</button>
+        <button id="refreshAllBtn" class="btn-primary">Refresh All</button>
         <button id="exportBtn">Export</button>
         <button id="importBtn">Import</button>
         <input type="file" id="importFile" accept=".json" style="display:none">
@@ -891,10 +902,6 @@
                 </div>
                 <button id="searchSystemBtn" class="btn-primary">Find Markets</button>
             </div>
-            <div class="hint">
-                Type a system name and click Find Markets to list available NPC stations. For player structures (citadels/Upwell), you'll need the structure ID.
-            </div>
-            <div class="hint" id="systemsStatus" style="display:none;color:var(--cyan);"></div>
             <div class="structure-input-wrap" id="structureInputWrap">
                 <label>Structure ID (from in-game, or ESI auth)</label>
                 <div style="display:flex; gap:8px;">
@@ -2127,8 +2134,10 @@ function renderItemsTable(market) {
             : fmtIsk(item.lowestSell);
         const sellVol = item.totalSellQty == null
             ? '<span style="color:var(--text-2);">—</span>'
-            : `<div>${fmtNum(item.totalSellQty)}</div>
-               <div class="sub-qty">${daysLeft}</div>`;
+            : fmtNum(item.totalSellQty);
+        const sellDays = (daily > 0 && item.totalSellQty != null)
+            ? `${(item.totalSellQty / daily).toFixed(1)}d`
+            : '<span style="color:var(--text-2);">—</span>';
         const sellAvg = daily > 0
             ? `${fmtNum(daily)}/d`
             : '<span style="color:var(--text-2);">—</span>';
@@ -2151,6 +2160,7 @@ function renderItemsTable(market) {
             <td class="item-name">${escapeHtml(item.typeName)}</td>
             <td class="num">${sellPrice}</td>
             <td class="num">${sellVol}</td>
+            <td class="num">${sellDays}</td>
             <td class="num">${sellAvg}</td>
             <td class="num">${buyPrice}</td>
             <td class="num">${buyVol}</td>
@@ -2170,11 +2180,12 @@ function renderItemsTable(market) {
                 <th></th>
                 <th>Item</th>
                 <th class="num">Sell Price</th>
-                <th class="num">Sell Volume <span class="col-sub">(qty · days)</span></th>
-                <th class="num">Sell Avg <span class="col-sub">(${window}d)</span></th>
+                <th class="num">Sell Volume</th>
+                <th class="num">Sell Days</th>
+                <th class="num">Sell Avg</th>
                 <th class="num">Buy Price</th>
                 <th class="num">Buy Volume</th>
-                <th class="num">Buy Avg <span class="col-sub">(${window}d)</span></th>
+                <th class="num">Buy Avg</th>
                 <th>Min Stock</th>
                 <th>Floor</th>
                 <th>Ceiling</th>
