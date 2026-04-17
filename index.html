@@ -335,14 +335,31 @@
         color: var(--text-1);
         letter-spacing: 0.3px;
         border-bottom: 1px solid var(--border);
+        /* Vertical dividers between columns */
+        border-right: 1px solid rgba(34, 48, 74, 0.5);
         white-space: nowrap;
     }
     td {
         padding: 4px 8px;
         border-bottom: 1px solid var(--border);
+        /* Vertical dividers between columns */
+        border-right: 1px solid rgba(34, 48, 74, 0.5);
         font-family: var(--font-mono);
         font-size: 12px;
         font-variant-numeric: tabular-nums;
+    }
+    /* No right border on last column */
+    th:last-child, td:last-child {
+        border-right: none;
+    }
+    /* Thicker group separators between logical column sections:
+       Col 5 = after Sell Days (end of sell block)
+       Col 9 = after Buy Avg (end of buy block)
+       Col 13 = after Tar Days (end of threshold block) */
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(10), td:nth-child(10),
+    th:nth-child(14), td:nth-child(14) {
+        border-left: 2px solid var(--border-hot);
     }
     /* Item name cell gets sans font, not mono */
     td.item-name {
@@ -350,9 +367,19 @@
         font-size: 12px;
         font-weight: 500;
     }
-    tr.ok { background: transparent; }
+    /* Zebra striping — applies to "ok" rows only; warn/alert keep their color tint */
+    tbody tr:nth-child(even).ok {
+        background: rgba(255, 255, 255, 0.025);
+    }
+    tbody tr:nth-child(odd).ok {
+        background: transparent;
+    }
     tr.warn { background: rgba(251, 191, 36, 0.06); }
     tr.alert { background: rgba(248, 113, 113, 0.08); }
+    /* Hover row highlight — amber glow so it's obvious which row you're on */
+    tbody tr:hover {
+        background: rgba(255, 166, 43, 0.10) !important;
+    }
     tr.alert td.status-cell { color: var(--red); font-weight: 600; }
     tr.warn td.status-cell { color: var(--yellow); font-weight: 600; }
     tr.ok td.status-cell { color: var(--green); }
