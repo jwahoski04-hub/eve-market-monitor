@@ -44,9 +44,19 @@
         border-bottom: 1px solid var(--border);
         padding: 14px 24px;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        flex-direction: column;
+        gap: 12px;
         background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+    }
+    .header-row-top {
+        display: flex;
+        align-items: center;
+        position: relative;
+    }
+    .header-row-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
     }
     .brand {
         display: flex;
@@ -86,6 +96,32 @@
         display: flex;
         gap: 8px;
         align-items: center;
+    }
+    .back-hub {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        background: var(--bg-2);
+        color: var(--text-2);
+        text-decoration: none;
+        font-family: "Consolas", "Monaco", monospace;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    .back-hub:hover {
+        border-color: var(--amber);
+        color: var(--amber);
+        background: rgba(255, 166, 43, 0.08);
+        box-shadow: 0 0 12px rgba(255, 166, 43, 0.18);
+    }
+    .back-hub-arrow {
+        font-size: 14px;
+        line-height: 1;
     }
     .status-dot {
         width: 8px;
@@ -1128,26 +1164,31 @@
 <body>
 
 <header class="app-header">
-    <div class="brand">
-        <div class="brand-mark"></div>
-        <div>
-            <div class="brand-title">MARKET <span>MONITOR</span></div>
-            <div class="brand-sub">NEW EDEN / SUPPLY OPS</div>
+    <div class="header-row-top">
+        <div class="brand">
+            <div class="brand-mark"></div>
+            <div>
+                <div class="brand-title">MARKET <span>MONITOR</span></div>
+                <div class="brand-sub">NEW EDEN / SUPPLY OPS</div>
+            </div>
         </div>
+        <a class="back-hub" href="https://jwahoski04-hub.github.io/eve-tools/" title="Return to Tool Suite" style="position:absolute;left:50%;transform:translateX(-50%);"><span class="back-hub-arrow">◀</span><span>BACK TO HUB</span></a>
     </div>
-    <div class="header-actions">
-        <span class="status-dot" id="statusDot"></span>
-        <span class="status-text" id="statusText">IDLE</span>
-        <span id="authPill" class="auth-pill" style="display:none;">
-            <span id="authCharName"></span>
-            <button id="logoutBtn" class="mini-btn" title="Log out">×</button>
-        </span>
-        <button id="loginBtn" class="btn-primary" style="display:none;">Log In with EVE</button>
-        <button id="refreshAllBtn" class="btn-primary">Refresh All</button>
-        <button id="exportBtn">Export</button>
-        <button id="importBtn">Import</button>
-        <button id="helpBtn" title="Open user guide">? Help</button>
-        <input type="file" id="importFile" accept=".json" style="display:none">
+    <div class="header-row-bottom">
+        <div class="header-actions">
+            <span class="status-dot" id="statusDot"></span>
+            <span class="status-text" id="statusText">IDLE</span>
+            <span id="authPill" class="auth-pill" style="display:none;">
+                <span id="authCharName"></span>
+                <button id="logoutBtn" class="mini-btn" title="Log out">×</button>
+            </span>
+            <button id="loginBtn" class="btn-primary" style="display:none;">Log In with EVE</button>
+            <button id="refreshAllBtn" class="btn-primary">Refresh All</button>
+            <button id="exportBtn">Export</button>
+            <button id="importBtn">Import</button>
+            <button id="helpBtn" title="Open user guide">? Help</button>
+            <input type="file" id="importFile" accept=".json" style="display:none">
+        </div>
     </div>
 </header>
 
