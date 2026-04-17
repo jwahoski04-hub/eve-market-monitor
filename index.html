@@ -290,9 +290,13 @@
     }
     /* Market list */
     .market-card {
-        background: var(--bg-2);
+        background: var(--bg-3);
         border: 1px solid var(--border);
-        margin-bottom: 10px;
+        margin-bottom: 32px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .market-card:last-child {
+        margin-bottom: 12px;
     }
     .market-card-header {
         padding: 10px 14px;
@@ -304,7 +308,7 @@
         cursor: pointer;
         user-select: none;
     }
-    .market-card-header:hover { background: var(--bg-3); }
+    .market-card-header:hover { background: rgba(255, 255, 255, 0.03); }
     .market-name {
         font-weight: 600;
         font-size: 13px;
@@ -483,13 +487,13 @@
         gap: 8px;
         align-items: end;
         padding: 10px;
-        background: var(--bg-3);
+        background: var(--bg-2);
         border: 1px dashed var(--border-hot);
         margin-top: 10px;
     }
     .bulk-add-row {
         padding: 10px;
-        background: var(--bg-3);
+        background: var(--bg-2);
         border: 1px dashed var(--border);
         margin-top: 10px;
     }
@@ -614,7 +618,7 @@
         gap: 6px;
         flex-wrap: wrap;
         padding: 8px 10px;
-        background: var(--bg-3);
+        background: var(--bg-2);
         border: 1px solid var(--border);
         margin-bottom: 10px;
     }
