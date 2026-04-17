@@ -925,7 +925,8 @@
         margin-bottom: 16px;
         display: none;
     }
-    .alerts-banner.active { display: block; }
+    .alerts-banner.active { display: flex; gap: 16px; align-items: stretch; }
+    .alerts-content { flex: 1; min-width: 0; }
     .alerts-title {
         font-family: "Consolas", monospace;
         font-size: 11px;
@@ -940,6 +941,95 @@
     .alerts-list li {
         list-style: none;
         padding: 2px 0;
+    }
+    /* Big Red Button — restock list copy */
+    .brb-wrap {
+        flex-shrink: 0;
+        width: 120px;
+        height: 148px; /* 120 button + ~28 for signature below */
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        transition: transform 0.08s ease-out, filter 0.15s;
+        outline: none;
+        position: relative;
+    }
+    .brb-wrap:hover { transform: scale(1.04); filter: drop-shadow(0 0 12px rgba(248, 113, 113, 0.5)); }
+    .brb-wrap:focus-visible { filter: drop-shadow(0 0 14px rgba(74, 214, 255, 0.7)); }
+    .brb-wrap:active .brb-group { transform: translateY(3px) scale(0.98); transform-origin: 160px 170px; }
+    .brb-wrap.copied::after {
+        content: "✓ copied to clipboard";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 700;
+        color: #fff;
+        background: var(--green);
+        padding: 4px 10px;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 10;
+    }
+    .brb-group { transition: transform 0.08s ease-out; }
+    .brb-label {
+        position: absolute;
+        bottom: -2px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "Consolas", monospace;
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        color: var(--text-2);
+        white-space: nowrap;
+        pointer-events: none;
+    }
+    /* "Kai's Button" signature — appears after the button is pressed,
+       with an animated rainbow gradient slowly flowing across the letters. */
+    .brb-signature {
+        position: absolute;
+        bottom: -22px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "Inter", sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        font-style: italic;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease-out;
+        background: linear-gradient(
+            90deg,
+            #ff3b2a 0%,
+            #ffa62b 16%,
+            #fbbf24 33%,
+            #4ade80 50%,
+            #4ad6ff 66%,
+            #a78bfa 83%,
+            #ff3b2a 100%
+        );
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+        text-shadow: 0 0 18px rgba(255, 255, 255, 0.15);
+        animation: brb-rainbow-flow 3s linear infinite;
+    }
+    .brb-wrap.signed .brb-signature {
+        opacity: 1;
+    }
+    @keyframes brb-rainbow-flow {
+        0%   { background-position: 0% center; }
+        100% { background-position: 200% center; }
     }
     /* Modal */
     .modal-backdrop {
@@ -1195,8 +1285,71 @@
 <div class="container">
 
     <div class="alerts-banner" id="alertsBanner">
-        <div class="alerts-title">⚠ ACTIVE ALERTS</div>
-        <ul class="alerts-list" id="alertsList"></ul>
+        <div class="alerts-content">
+            <div class="alerts-title">⚠ ACTIVE ALERTS</div>
+            <ul class="alerts-list" id="alertsList"></ul>
+        </div>
+        <div class="brb-wrap" id="bigRedBtn" role="button" tabindex="0" aria-label="Copy restock list to clipboard (Janice / multibuy format)" title="Copy restock list — Janice/multibuy format">
+            <svg width="120" height="120" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <radialGradient id="brbBaseShadow" cx="50%" cy="50%" r="50%">
+                        <stop offset="60%" stop-color="#000" stop-opacity="0.35"/>
+                        <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="brbOuterRim" cx="50%" cy="40%" r="65%">
+                        <stop offset="0%" stop-color="#fafafa"/>
+                        <stop offset="45%" stop-color="#c8c8cc"/>
+                        <stop offset="75%" stop-color="#6e6e74"/>
+                        <stop offset="100%" stop-color="#2a2a2c"/>
+                    </radialGradient>
+                    <linearGradient id="brbRimBevel" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+                        <stop offset="50%" stop-color="#d6d6da" stop-opacity="0.5"/>
+                        <stop offset="100%" stop-color="#2a2a2c" stop-opacity="0.9"/>
+                    </linearGradient>
+                    <radialGradient id="brbInnerRing" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#1a1a1c"/>
+                        <stop offset="100%" stop-color="#3a3a3c"/>
+                    </radialGradient>
+                    <radialGradient id="brbRedDome" cx="40%" cy="35%" r="75%">
+                        <stop offset="0%" stop-color="#ff9a8a"/>
+                        <stop offset="25%" stop-color="#ff3b2a"/>
+                        <stop offset="60%" stop-color="#c8000a"/>
+                        <stop offset="100%" stop-color="#6a0004"/>
+                    </radialGradient>
+                    <radialGradient id="brbDomeHighlight" cx="35%" cy="25%" r="35%">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+                        <stop offset="60%" stop-color="#ffffff" stop-opacity="0.1"/>
+                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="brbDomeBottomGlow" cx="55%" cy="85%" r="45%">
+                        <stop offset="0%" stop-color="#ff6054" stop-opacity="0.55"/>
+                        <stop offset="100%" stop-color="#ff6054" stop-opacity="0"/>
+                    </radialGradient>
+                    <filter id="brbSoftBlur" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="2"/>
+                    </filter>
+                </defs>
+                <ellipse cx="160" cy="275" rx="130" ry="18" fill="url(#brbBaseShadow)"/>
+                <g class="brb-group">
+                    <circle cx="160" cy="170" r="140" fill="url(#brbOuterRim)"/>
+                    <circle cx="160" cy="170" r="140" fill="none" stroke="#1a1a1c" stroke-width="1.5" opacity="0.6"/>
+                    <circle cx="160" cy="162" r="130" fill="url(#brbRimBevel)" opacity="0.7"/>
+                    <circle cx="160" cy="170" r="115" fill="#8a8a8e"/>
+                    <circle cx="160" cy="170" r="115" fill="url(#brbOuterRim)" opacity="0.9"/>
+                    <ellipse cx="160" cy="130" rx="95" ry="18" fill="#ffffff" opacity="0.35" filter="url(#brbSoftBlur)"/>
+                    <circle cx="160" cy="170" r="100" fill="url(#brbInnerRing)"/>
+                    <circle cx="160" cy="170" r="100" fill="none" stroke="#0a0a0c" stroke-width="1"/>
+                    <circle cx="160" cy="172" r="92" fill="#000" opacity="0.55" filter="url(#brbSoftBlur)"/>
+                    <circle cx="160" cy="165" r="88" fill="url(#brbRedDome)"/>
+                    <circle cx="160" cy="165" r="88" fill="url(#brbDomeBottomGlow)"/>
+                    <ellipse cx="138" cy="130" rx="42" ry="28" fill="url(#brbDomeHighlight)"/>
+                    <ellipse cx="185" cy="205" rx="28" ry="8" fill="#ffffff" opacity="0.12"/>
+                </g>
+            </svg>
+            <div class="brb-label">COPY RESTOCK</div>
+            <div class="brb-signature" aria-hidden="true">Kai's Button</div>
+        </div>
     </div>
 
     <!-- Add Market Section -->
@@ -2437,6 +2590,95 @@ function evaluateAlerts() {
     }
 }
 
+/* ---------------- Restock list builder (Big Red Button) ----------------
+ * Walks all alerting items, computes the quantity needed to bring stock
+ * up to whichever threshold is breached (min stock OR target days × daily volume),
+ * and aggregates duplicates across stations so the output is a clean shopping
+ * list. Format: "Item Name\tQuantity" per line — directly pastes into Janice
+ * or EVE's multibuy window.
+ */
+function buildRestockList() {
+    // Aggregate by typeName across all stations with stock-related breaches
+    const agg = new Map(); // typeName -> quantity
+    let rowCount = 0;
+    for (const market of state.markets) {
+        for (const item of market.items) {
+            if (item.totalSellQty == null) continue; // no data yet
+            const status = itemStatus(item);
+            if (status.level !== 'alert') continue;
+
+            // Stock-only breaches trigger restock. Price breaches don't.
+            const hasMinBreach = status.breaches.has('minStock');
+            const hasDaysBreach = status.breaches.has('daysSupply');
+            if (!hasMinBreach && !hasDaysBreach) continue;
+
+            // Compute required quantity — max of the two stock targets so both are satisfied
+            let needMin = 0, needDays = 0;
+            if (hasMinBreach && item.minStockOn && item.minStock > 0) {
+                needMin = item.minStock - item.totalSellQty;
+            }
+            if (hasDaysBreach && item.daysSupplyOn && item.daysSupply > 0) {
+                const daily = itemDailyVolume(item);
+                if (daily > 0) {
+                    const target = Math.ceil(item.daysSupply * daily);
+                    needDays = target - item.totalSellQty;
+                }
+            }
+            const qty = Math.max(needMin, needDays, 0);
+            if (qty <= 0) continue;
+
+            agg.set(item.typeName, (agg.get(item.typeName) || 0) + Math.ceil(qty));
+            rowCount++;
+        }
+    }
+
+    // Sort alphabetically for consistent paste output
+    const lines = Array.from(agg.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([name, qty]) => `${name}\t${qty}`);
+
+    return { text: lines.join('\n'), uniqueItems: agg.size, rowsAggregated: rowCount };
+}
+
+async function copyRestockList() {
+    const { text, uniqueItems, rowsAggregated } = buildRestockList();
+    const btn = document.getElementById('bigRedBtn');
+    if (!btn) return;
+
+    if (!text) {
+        // Edge case: banner is showing but all alerts are price-only (no stock shortfall)
+        btn.setAttribute('title', 'No stock shortfalls to restock (price-only alerts)');
+        // Brief red flash to signal nothing-to-copy
+        btn.style.filter = 'drop-shadow(0 0 14px rgba(248, 113, 113, 0.9))';
+        setTimeout(() => { btn.style.filter = ''; }, 800);
+        alert('No stock shortfalls found.\n\nActive alerts are all price-related (floor/ceiling), which don\'t need restocking.');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
+        // Fallback for non-HTTPS / older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch {}
+        document.body.removeChild(ta);
+    }
+
+    // Visual feedback
+    btn.classList.add('copied');
+    btn.classList.add('signed'); // reveal "Kai's Button" signature
+    const suffix = rowsAggregated > uniqueItems
+        ? ` (merged from ${rowsAggregated} station alerts)`
+        : '';
+    btn.setAttribute('title', `Copied ${uniqueItems} item(s)${suffix} — paste into Janice or EVE multibuy`);
+    setTimeout(() => btn.classList.remove('copied'), 1500);
+}
+
 /* ---------------- Formatting helpers ---------------- */
 function fmtNum(n) {
     if (n == null) return '—';
@@ -3599,6 +3841,19 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------------- Header buttons ---------------- */
 document.getElementById('refreshAllBtn').addEventListener('click', refreshAll);
+
+// Big Red Button — copy restock shopping list to clipboard (Janice/multibuy format)
+(function () {
+    const brb = document.getElementById('bigRedBtn');
+    if (!brb) return;
+    brb.addEventListener('click', copyRestockList);
+    brb.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            copyRestockList();
+        }
+    });
+})();
 
 // Help modal
 document.getElementById('helpBtn').addEventListener('click', () => {
