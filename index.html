@@ -1114,6 +1114,46 @@
         font-size: 11px;
         font-weight: 500;
     }
+    /* Help trigger button in the header — matches the Arb Scanner tool
+       so the two products read as a cohesive suite. Amber pill with a
+       small circled "?" glyph on the left and "HELP" wordmark on the
+       right. The glyph + word pair makes the affordance unambiguous —
+       a bare "?" icon alone is easy to miss in a dense header. */
+    #helpBtn.help-trigger-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        background: transparent;
+        border: 1px solid var(--amber);
+        border-radius: 2px;
+        color: var(--amber);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s, box-shadow 0.15s;
+    }
+    #helpBtn.help-trigger-btn .help-btn-glyph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1px solid var(--amber);
+        font-size: 11px;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: 0;
+    }
+    #helpBtn.help-trigger-btn:hover {
+        background: rgba(255, 166, 43, 0.10);
+        box-shadow: 0 0 14px rgba(255, 166, 43, 0.25);
+    }
     .help-status-ok {
         display: inline-block;
         padding: 1px 8px;
@@ -1276,7 +1316,7 @@
             <button id="refreshAllBtn" class="btn-primary">Refresh All</button>
             <button id="exportBtn">Export</button>
             <button id="importBtn">Import</button>
-            <button id="helpBtn" title="Open user guide">? Help</button>
+            <button id="helpBtn" class="help-trigger-btn" title="How to use this tool (Esc to close)" aria-label="Open user guide"><span class="help-btn-glyph">?</span>HELP</button>
             <input type="file" id="importFile" accept=".json" style="display:none">
         </div>
     </div>
@@ -1445,6 +1485,17 @@
                 <li><b>Bright red cell</b> — the specific metric that triggered the alert. E.g., if Min Stock is set to 500 and Sell Volume is 120, the Sell Volume cell is highlighted red.</li>
                 <li><b>Faint yellow row tint</b> — approaching a threshold but not yet in violation ("warning").</li>
                 <li><b>Row hover</b> — amber glow to help track rows across 15 columns.</li>
+                <li><b>Active Alerts banner</b> — appears at the very top of the page as soon as any item is in alert state. Lists every breaching item across every station with the exact reason. Hidden when all thresholds are met.</li>
+            </ul>
+
+            <h3>Active Alerts banner — Copy Restock button</h3>
+            <p>When the Active Alerts banner is visible, a large red push-button sits on its right side labeled <b>COPY RESTOCK</b>. Click it (or press Enter/Space when focused) and the tool builds a shopping list of every item currently alerting on a stock shortfall — sized to exactly cover the gap — and copies it to your clipboard in <b>Janice / EVE multibuy</b> format (<code>Item Name &lt;tab&gt; Quantity</code>, one per line). Paste it into Janice or into EVE's multibuy window to price or purchase the entire restock in one go.</p>
+            <ul>
+                <li><b>Quantity math</b> — for each alerting item, the tool computes <i>max(Min Stock − Sell Volume, Target Days × daily volume − Sell Volume)</i>. That way a single order refills the shortfall for <b>both</b> thresholds, not just the tighter one.</li>
+                <li><b>Cross-station aggregation</b> — if the same item is alerting at multiple stations, the quantities are summed into one line. The output is a single deduplicated shopping list, not a per-station one.</li>
+                <li><b>Price-only alerts are skipped</b> — Floor and Ceiling breaches are market pricing problems, not stock shortfalls, so they don't appear in the restock list. If every active alert is price-only, the button will tell you there's nothing to buy instead of copying an empty list.</li>
+                <li><b>Success confirmation</b> — a green ✓ flashes over the button after copy, and an italic rainbow "Kai's Button" signature fades in below it for about 10 seconds.</li>
+                <li><b>Clipboard fallback</b> — if your browser blocks the modern clipboard API (usually non-HTTPS contexts), the tool falls back to a legacy copy method automatically.</li>
             </ul>
 
             <h3>Per-item controls</h3>
