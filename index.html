@@ -591,12 +591,43 @@
         background: var(--bg-0);
         white-space: nowrap;
     }
-    .cat-pill-cyan   { color: var(--cyan);   border-color: rgba(74, 214, 255, 0.45); background: rgba(74, 214, 255, 0.08); }
-    .cat-pill-amber  { color: var(--amber);  border-color: rgba(255, 166, 43, 0.45); background: rgba(255, 166, 43, 0.08); }
-    .cat-pill-green  { color: var(--green);  border-color: rgba(74, 222, 128, 0.45); background: rgba(74, 222, 128, 0.08); }
-    .cat-pill-purple { color: var(--purple); border-color: rgba(167, 139, 250, 0.45); background: rgba(167, 139, 250, 0.08); }
-    .cat-pill-red    { color: var(--red);    border-color: rgba(248, 113, 113, 0.45); background: rgba(248, 113, 113, 0.08); }
-    .cat-pill-muted  { color: var(--text-2); border-color: var(--border); background: var(--bg-0); }
+    /* ── Category pill palette ────────────────────────────────────────
+       Each semantic class maps to one EVE item category with its own
+       distinct hue. Colors chosen for visual distinctness on the dark
+       background and grouped loosely by "family" on the hue wheel:
+         - Cyans / blues = ship and fittings
+         - Greens        = consumables, PI
+         - Yellows/oranges/ambers = minerals, raw goods, trade
+         - Purples       = intangibles (blueprints, skills, decryptors)
+         - Pinks/magentas = cosmetics + reactions
+         - Reds          = structures
+       Base pill styling (padding, font, border radius) lives on `.cat-pill`
+       and is unchanged; only color/border/background vary per class. */
+    .cat-ship         { color: #4ad6ff; border-color: rgba(74, 214, 255, 0.45);  background: rgba(74, 214, 255, 0.08);  }
+    .cat-module       { color: #6aa9ff; border-color: rgba(106, 169, 255, 0.45); background: rgba(106, 169, 255, 0.08); }
+    .cat-drone        { color: #5ad9c8; border-color: rgba(90, 217, 200, 0.45);  background: rgba(90, 217, 200, 0.08);  }
+    .cat-rig          { color: #8aa4cc; border-color: rgba(138, 164, 204, 0.45); background: rgba(138, 164, 204, 0.08); }
+    .cat-fighter      { color: #48c9b0; border-color: rgba(72, 201, 176, 0.45);  background: rgba(72, 201, 176, 0.08);  }
+    .cat-subsystem    { color: #7fb3d5; border-color: rgba(127, 179, 213, 0.45); background: rgba(127, 179, 213, 0.08); }
+    .cat-charge       { color: #a6e22e; border-color: rgba(166, 226, 46, 0.45);  background: rgba(166, 226, 46, 0.08);  }
+    .cat-implant      { color: #4ade80; border-color: rgba(74, 222, 128, 0.45);  background: rgba(74, 222, 128, 0.08);  }
+    .cat-material     { color: #f4c430; border-color: rgba(244, 196, 48, 0.45);  background: rgba(244, 196, 48, 0.08);  }
+    .cat-asteroid     { color: #e67e22; border-color: rgba(230, 126, 34, 0.45);  background: rgba(230, 126, 34, 0.08);  }
+    .cat-commodity    { color: #ffa62b; border-color: rgba(255, 166, 43, 0.45);  background: rgba(255, 166, 43, 0.08);  }
+    .cat-pi-resource  { color: #b8d436; border-color: rgba(184, 212, 54, 0.45);  background: rgba(184, 212, 54, 0.08);  }
+    .cat-pi-industry  { color: #9ab834; border-color: rgba(154, 184, 52, 0.45);  background: rgba(154, 184, 52, 0.08);  }
+    .cat-blueprint    { color: #a78bfa; border-color: rgba(167, 139, 250, 0.45); background: rgba(167, 139, 250, 0.08); }
+    .cat-skill        { color: #b266ff; border-color: rgba(178, 102, 255, 0.45); background: rgba(178, 102, 255, 0.08); }
+    .cat-skin         { color: #ec4899; border-color: rgba(236, 72, 153, 0.45);  background: rgba(236, 72, 153, 0.08);  }
+    .cat-apparel      { color: #f472b6; border-color: rgba(244, 114, 182, 0.45); background: rgba(244, 114, 182, 0.08); }
+    .cat-decryptor    { color: #818cf8; border-color: rgba(129, 140, 248, 0.45); background: rgba(129, 140, 248, 0.08); }
+    .cat-reaction     { color: #d946ef; border-color: rgba(217, 70, 239, 0.45);  background: rgba(217, 70, 239, 0.08);  }
+    .cat-structure    { color: #ef4444; border-color: rgba(239, 68, 68, 0.45);   background: rgba(239, 68, 68, 0.08);   }
+    .cat-str-module   { color: #dc2626; border-color: rgba(220, 38, 38, 0.45);   background: rgba(220, 38, 38, 0.08);   }
+    .cat-deployable   { color: #fb7185; border-color: rgba(251, 113, 133, 0.45); background: rgba(251, 113, 133, 0.08); }
+    .cat-sov          { color: #d97706; border-color: rgba(217, 119, 6, 0.45);   background: rgba(217, 119, 6, 0.08);   }
+    .cat-collectible  { color: #fbbf24; border-color: rgba(251, 191, 36, 0.45);  background: rgba(251, 191, 36, 0.08);  }
+    .cat-pill-muted   { color: var(--text-2); border-color: var(--border); background: var(--bg-0); }
     /* ── Per-station category filter bar ──────────────────────────────
        Mirrors the arb scanner's "Categories:" row pattern. Left-click an
        inactive pill to switch to include-only mode for that category;
@@ -1657,20 +1688,61 @@
             <p>Zebra striping on OK rows and an amber hover highlight make it easy to track a single row across all 14 columns.</p>
 
             <h3>Category column</h3>
-            <p>Each item gets a color-coded category pill showing its broad family. The pill is fetched from EVE's universe API the first time you Refresh a market containing that item, then cached forever in your browser — so subsequent scans are instant. The categories mirror the Arb Scanner tool's palette so the two apps agree on what a "Module" or "Asteroid" or "SKIN" looks like:</p>
-            <ul>
-                <li><span class="cat-pill cat-pill-cyan">Ship</span> <span class="cat-pill cat-pill-cyan">Module</span> <span class="cat-pill cat-pill-cyan">Drone</span> <span class="cat-pill cat-pill-cyan">Rig</span> — <b>Fittings</b>: what you fly and what you bolt to it.</li>
-                <li><span class="cat-pill cat-pill-amber">Material</span> <span class="cat-pill cat-pill-amber">Asteroid</span> <span class="cat-pill cat-pill-amber">Commodity</span> <span class="cat-pill cat-pill-amber">PI Resource</span> — <b>Raw &amp; tradable</b>: minerals, ores, commodities, PI tiers.</li>
-                <li><span class="cat-pill cat-pill-green">Charge</span> <span class="cat-pill cat-pill-green">Implant</span> — <b>Consumables</b>: ammo, boosters, implants.</li>
-                <li><span class="cat-pill cat-pill-purple">Blueprint</span> <span class="cat-pill cat-pill-purple">Skill</span> <span class="cat-pill cat-pill-purple">SKIN</span> <span class="cat-pill cat-pill-purple">Decryptor</span> — <b>Intangibles &amp; production</b>: BPOs/BPCs, skillbooks, SKINs, invention decryptors.</li>
-                <li><span class="cat-pill cat-pill-red">Structure</span> <span class="cat-pill cat-pill-red">Deployable</span> <span class="cat-pill cat-pill-red">Str. Module</span> — <b>Structures</b>: citadels, engineering complexes, deployables, and their rigs/modules.</li>
-            </ul>
+            <p>Each item gets a color-coded category pill showing its broad family. The pill is fetched from EVE's universe API the first time you Refresh a market containing that item, then cached forever in your browser — so subsequent scans are instant. Every common category has its own distinct hue, loosely grouped by family on the color wheel so related categories read as related:</p>
+
+            <p><b>Ships &amp; fittings</b> — blue family:<br>
+                <span class="cat-pill cat-ship">Ship</span>
+                <span class="cat-pill cat-module">Module</span>
+                <span class="cat-pill cat-drone">Drone</span>
+                <span class="cat-pill cat-rig">Rig</span>
+                <span class="cat-pill cat-fighter">Fighter</span>
+                <span class="cat-pill cat-subsystem">Subsystem</span>
+            </p>
+
+            <p><b>Consumables</b> — green family:<br>
+                <span class="cat-pill cat-charge">Charge</span>
+                <span class="cat-pill cat-implant">Implant</span>
+            </p>
+
+            <p><b>Raw resources &amp; trade</b> — yellow / orange family:<br>
+                <span class="cat-pill cat-material">Material</span>
+                <span class="cat-pill cat-asteroid">Asteroid</span>
+                <span class="cat-pill cat-commodity">Commodity</span>
+                <span class="cat-pill cat-pi-resource">PI Resource</span>
+                <span class="cat-pill cat-pi-industry">PI Industry</span>
+            </p>
+
+            <p><b>Intangibles &amp; production</b> — purple / indigo family:<br>
+                <span class="cat-pill cat-blueprint">Blueprint</span>
+                <span class="cat-pill cat-skill">Skill</span>
+                <span class="cat-pill cat-decryptor">Decryptor</span>
+                <span class="cat-pill cat-reaction">Reaction</span>
+            </p>
+
+            <p><b>Cosmetics</b> — pink family:<br>
+                <span class="cat-pill cat-skin">SKIN</span>
+                <span class="cat-pill cat-apparel">Apparel</span>
+            </p>
+
+            <p><b>Structures &amp; deployables</b> — red family:<br>
+                <span class="cat-pill cat-structure">Structure</span>
+                <span class="cat-pill cat-str-module">Str. Module</span>
+                <span class="cat-pill cat-deployable">Deployable</span>
+                <span class="cat-pill cat-sov">Sov. Struct</span>
+            </p>
+
+            <p><b>Limited-run items</b> — previously "Special Edition":<br>
+                <span class="cat-pill cat-collectible">Collectible</span> — Alliance Tournament prizes, event items, commemoratives, gift packs.
+            </p>
+
+            <p><b>Rare &amp; legacy categories</b> (Celestial, Accessory, Infrastructure, Orbital, Placeable, Planet, Relic, Infantry, Expert Sys.) and <b>items not yet resolved</b> share a muted gray pill — you'll rarely see these in practice.</p>
+
             <p>Sort the Category column to group every module, every blueprint, or every SKIN in one block — handy when you want to sanity-check all fittings for a doctrine or all blueprints in one inventory.</p>
 
             <h3>Category filter (per station)</h3>
             <p>Every station card with more than one distinct category of items gets a <b>Categories:</b> row of pill buttons below the Station Globals bar, showing only the categories actually present in that station's items. This lets you narrow the table to just the modules, or just ships + drones, or any combination — without touching the other stations.</p>
             <ul>
-                <li><b>Click a category pill</b> — filter to just that category. The pill lights up with a glow in its color family; the others dim.</li>
+                <li><b>Click a category pill</b> — filter to just that category. The pill lights up with a glow in its color; the others dim.</li>
                 <li><b>Click additional pills</b> — adds each one to the active filter (<b>multi-select</b>). Rows in any selected category remain visible. Example: click <b>Module</b> then <b>Charge</b> and the table shows modules and charges side-by-side.</li>
                 <li><b>Click an active pill again</b> — removes that category from the filter. If it was the last one active, the filter auto-snaps back to <b>ALL</b> so you're never left with a blank table.</li>
                 <li><b>Click the <b>ALL</b> pill</b> — clears any selection and shows every category again.</li>
@@ -4079,36 +4151,52 @@ const CAT_LABEL_MAP = {
     157:  'Rig',
     350001:'Infantry',
     2100: 'Expert Sys.',
-    2118: 'Special Ed.',
+    2118: 'Collectible', // limited-run event items, AT prizes, commemoratives — was "Special Ed." (ambiguous/too long)
 };
 function catLabel(categoryId) {
     if (categoryId == null) return null;
     return CAT_LABEL_MAP[categoryId] || `Cat ${categoryId}`;
 }
 
-// Which color family should this category's pill use? Keep to a small palette
-// (5-ish families) so rows scan cleanly instead of becoming a rainbow of every
-// category having its own hue.
+// Return the semantic CSS class for this category's pill. Each commonly-
+// seen category gets its own distinct hue; rare/legacy categories fall
+// back to the muted style. See CSS for the full palette table.
 function catPillClass(categoryId) {
     if (categoryId == null) return 'cat-pill-muted';
     switch (categoryId) {
-        // Fittings — the ship itself and things you bolt to it
-        case 6: case 7: case 18: case 32: case 87: case 157:
-            return 'cat-pill-cyan';
-        // Raw stuff & tradables — minerals, PI, ores, commodities
-        case 4: case 17: case 25: case 41: case 43:
-            return 'cat-pill-amber';
-        // Consumables the pilot/ship uses up
-        case 8: case 11: case 20:
-            return 'cat-pill-green';
-        // Intangibles / production — blueprints, skills, SKINs, decryptors, reactions
-        case 9: case 16: case 35: case 91: case 24: case 65: case 2100:
-            return 'cat-pill-purple';
-        // Structures / deployables / sovereignty
-        case 22: case 23: case 34: case 40: case 66:
-            return 'cat-pill-red';
-        default:
-            return 'cat-pill-muted';
+        // Ships & fittings — cyan/blue family
+        case 6:   return 'cat-ship';
+        case 7:   return 'cat-module';
+        case 18:  return 'cat-drone';
+        case 157: return 'cat-rig';
+        case 87:  return 'cat-fighter';
+        case 32:  return 'cat-subsystem';
+        // Consumables — green family
+        case 8:   return 'cat-charge';
+        case 11:  case 20: return 'cat-implant'; // 20 = legacy implant/booster alias
+        // Raw resources & trade — yellow/orange family
+        case 4:   return 'cat-material';
+        case 25:  return 'cat-asteroid';
+        case 17:  return 'cat-commodity';
+        case 41:  return 'cat-pi-resource';
+        case 43:  return 'cat-pi-industry';
+        // Intangibles & production — purple/indigo family
+        case 9:   return 'cat-blueprint';
+        case 16:  return 'cat-skill';
+        case 35:  return 'cat-decryptor';
+        case 24:  case 65: return 'cat-reaction';
+        // Cosmetics — pink family
+        case 91:  return 'cat-skin';
+        case 30:  return 'cat-apparel';
+        // Structures — red family
+        case 23:  return 'cat-structure';
+        case 34:  case 66: return 'cat-str-module';
+        case 22:  return 'cat-deployable';
+        case 40:  return 'cat-sov';
+        // Collectibles (formerly "Special Edition")
+        case 2118:return 'cat-collectible';
+        // Rare / legacy — muted
+        default:  return 'cat-pill-muted';
     }
 }
 
