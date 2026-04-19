@@ -635,38 +635,21 @@
         opacity: 0.9;
         transform: translateY(-1px);
     }
-    /* ALL mode with nothing excluded → all pills look inactive EXCEPT the
-       "ALL" pill. When a specific category is selected, only that pill is
-       active (opacity 1) and all others dim. */
+    /* ALL mode with nothing selected → all pills look inactive EXCEPT the
+       "ALL" pill. When specific categories are selected, those pills are
+       active (opacity 1, glow) and the rest dim. */
     .cat-filter-bar .cat-filter-btn.active {
         opacity: 1;
         box-shadow: 0 0 8px currentColor;
     }
-    /* Excluded state — right-clicked in ALL mode. Strikethrough + red.
-       Uses the same visual language as the arb scanner. */
-    .cat-filter-bar .cat-filter-btn.excluded {
-        color: var(--red) !important;
-        border-color: rgba(248, 113, 113, 0.45) !important;
-        background: rgba(248, 113, 113, 0.10) !important;
-        text-decoration: line-through;
-        text-decoration-thickness: 1px;
-        opacity: 0.85;
-    }
-    .cat-filter-bar .cat-filter-btn.excluded::before {
-        content: "✕ ";
-        font-weight: 600;
-        text-decoration: none;
-        display: inline-block;
-    }
-    .cat-filter-bar .cat-filter-btn.excluded:hover {
-        opacity: 1;
-    }
-    /* Tip line below the pills — mirrors arb scanner exactly */
+    /* Tip line below the pills — plain one-liner. Left-click is the only
+       gesture now; right-click / exclusion was removed when the filter bar
+       became dynamic and pre-filtered to only-present categories. */
     .cat-filter-tip {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         padding: 4px 10px;
         font-family: var(--font-sans);
         font-size: 10px;
@@ -683,9 +666,6 @@
         text-transform: uppercase;
         font-size: 9px;
     }
-    .cat-filter-tip .tip-sep { color: var(--border-hot); }
-    .cat-filter-tip .tip-left  { color: var(--amber); font-weight: 600; }
-    .cat-filter-tip .tip-right { color: var(--red);   font-weight: 600; }
     /* Placeholder dash for rows whose category hasn't been fetched yet —
        deliberately subtle so users understand it's a pending value, not
        a missing one. Next Refresh will populate it. */
@@ -1688,14 +1668,14 @@
             <p>Sort the Category column to group every module, every blueprint, or every SKIN in one block — handy when you want to sanity-check all fittings for a doctrine or all blueprints in one inventory.</p>
 
             <h3>Category filter (per station)</h3>
-            <p>Every station card with more than one distinct category of items gets a <b>Categories:</b> row of pill buttons below the Station Globals bar, showing only the categories actually present in that station's items. This lets you narrow the table to just the modules, or just the ships, or just everything-except-apparel, without touching the other stations.</p>
+            <p>Every station card with more than one distinct category of items gets a <b>Categories:</b> row of pill buttons below the Station Globals bar, showing only the categories actually present in that station's items. This lets you narrow the table to just the modules, or just ships + drones, or any combination — without touching the other stations.</p>
             <ul>
-                <li><b><span class="tip-left" style="color:var(--amber);font-weight:600;">Left-click</span> a category pill</b> — include-only mode. The table filters to just that category. The pill lights up; every other pill dims.</li>
-                <li><b><span class="tip-left" style="color:var(--amber);font-weight:600;">Left-click</span> the <b>ALL</b> pill</b> — reset back to showing every category. Also clears any right-click exclusions.</li>
-                <li><b><span class="tip-right" style="color:var(--red);font-weight:600;">Right-click</span> a category pill in ALL mode</b> — exclude that category. The pill gets a ✕ prefix and a strikethrough. Useful when you want "everything except Apparel and SKINs" — right-click two pills, done. Right-click again to un-exclude.</li>
-                <li><b>Right-click in specific-category mode</b> — shakes the button as a hint. Exclusions only make sense in ALL mode; switch back to ALL first.</li>
+                <li><b>Click a category pill</b> — filter to just that category. The pill lights up with a glow in its color family; the others dim.</li>
+                <li><b>Click additional pills</b> — adds each one to the active filter (<b>multi-select</b>). Rows in any selected category remain visible. Example: click <b>Module</b> then <b>Charge</b> and the table shows modules and charges side-by-side.</li>
+                <li><b>Click an active pill again</b> — removes that category from the filter. If it was the last one active, the filter auto-snaps back to <b>ALL</b> so you're never left with a blank table.</li>
+                <li><b>Click the <b>ALL</b> pill</b> — clears any selection and shows every category again.</li>
             </ul>
-            <p>The filter composes with the Status filter (ALL/OK/Alerts) — both narrow the visible set independently. Filter state is <b>in-memory only</b>: it resets on page reload, same as the Arb Scanner. If you want a persistent filter, sort the Category column instead.</p>
+            <p>The filter composes with the Status filter (ALL/OK/Alerts) — both narrow the visible set independently. Filter state is <b>in-memory only</b>: it resets on page reload. If you want a persistent filter, sort the Category column instead.</p>
 
             <h3>Volume window</h3>
             <p>Top-right of the page has a <b>1d / 7d / 30d</b> toggle that controls which average is used for <b>Sell Days</b> and <b>Sell Avg / Buy Avg</b>. Short window reacts faster to demand spikes; long window smooths out noise. 7d is usually the right default.</p>
@@ -3109,12 +3089,18 @@ function renderMarketGlobalsBar(market) {
 /* ---------------- Per-station category filter bar ----------------
  * Dynamic — only categories actually present in THIS market's items get
  * buttons, so stations with only ships don't show a "Decryptor" pill.
- * Mirrors the arb scanner's interaction model exactly:
- *   - Left-click a specific category → switch to include-only mode
- *   - Left-click ALL → clear back to everything visible
- *   - Right-click a category in ALL mode → exclude it (✕ strikethrough)
- * Filter state lives on the market object in memory only (not persisted);
- * it resets on reload, matching the arb scanner.
+ *
+ * Interaction model:
+ *   - ALL pill selected → every category visible
+ *   - Left-click a category in ALL mode → switch to that single category
+ *   - Left-click another category → add it to the selection (multi-select)
+ *   - Left-click an already-selected category → remove it
+ *   - Deselecting the last active category auto-snaps back to ALL mode
+ *   - Left-click ALL → clears any selection, shows everything
+ *
+ * No right-click / exclusion mode: since the bar is already pre-filtered
+ * to only-present categories, users can just toggle the specific ones
+ * they want in. State is in-memory only (resets on reload).
  */
 function renderCategoryFilterBar(market) {
     if (!market.items.length) return '';
@@ -3138,32 +3124,26 @@ function renderCategoryFilterBar(market) {
     // bar adds visual noise without any filtering power. Suppress it.
     if (present.size < 2) return '';
 
-    // Pull the selection/exclusion state from the market (default: ALL mode).
+    // Pull the selection state from the market (default: ALL mode).
     const selected = market._selectedCats instanceof Set ? market._selectedCats : new Set(['all']);
-    const excluded = market._excludedCats instanceof Set ? market._excludedCats : new Set();
     const inAllMode = selected.has('all');
 
     // Sorted list of categories for stable button order — alphabetical by label
     const entries = [...present.entries()].sort((a, b) => a[1].label.localeCompare(b[1].label));
 
-    // Build the ALL pill first, then each specific category pill
+    // ALL pill — active when nothing specific is selected
     const allActive = inAllMode ? 'active' : '';
     const allBtn = `<button
         class="cat-pill cat-pill-muted cat-filter-btn ${allActive}"
         data-cat-filter="${market.id}" data-cat-key="all"
-        title="Show all categories (left-click to reset)">ALL</button>`;
+        title="Show all categories">ALL</button>`;
 
     const catBtns = entries.map(([key, info]) => {
         const isActive = !inAllMode && selected.has(key);
-        const isExcluded = inAllMode && excluded.has(key);
-        const cls = `cat-pill ${info.pillClass} cat-filter-btn${isActive ? ' active' : ''}${isExcluded ? ' excluded' : ''}`;
-        const title = isExcluded
-            ? `Excluded — right-click to restore (${info.count} items)`
-            : isActive
-                ? `Active — left-click ALL to reset (${info.count} items)`
-                : inAllMode
-                    ? `Left-click to show only ${info.label} · right-click to exclude (${info.count} items)`
-                    : `Left-click to show only ${info.label} (${info.count} items)`;
+        const cls = `cat-pill ${info.pillClass} cat-filter-btn${isActive ? ' active' : ''}`;
+        const title = isActive
+            ? `Showing ${info.label} (${info.count} items) — click to remove from filter`
+            : `Click to add ${info.label} to the filter (${info.count} items)`;
         return `<button
             class="${cls}"
             data-cat-filter="${market.id}" data-cat-key="${escapeHtml(key)}"
@@ -3176,9 +3156,7 @@ function renderCategoryFilterBar(market) {
         </div>
         <div class="cat-filter-tip">
             <span class="tip-label">Tip</span>
-            <span><span class="tip-left">Left-click</span> to select a category</span>
-            <span class="tip-sep">·</span>
-            <span>in <b>ALL</b> mode, <span class="tip-right">right-click</span> to exclude a category <span class="tip-right">✕</span></span>
+            <span>Click any category to filter · click more to add them · click again to remove · click <b>ALL</b> to reset</span>
         </div>`;
 }
 
@@ -3239,8 +3217,10 @@ function renderItemsTable(market) {
     }
 
     // Category filter state — in-memory, per-market, set via filter bar pills.
+    // Multi-select: ALL shows everything; otherwise only rows whose category
+    // is in the selected set. No exclusion mode — the filter bar already
+    // hides categories not present in this station.
     const selectedCats = market._selectedCats instanceof Set ? market._selectedCats : new Set(['all']);
-    const excludedCats = market._excludedCats instanceof Set ? market._excludedCats : new Set();
     const catFilterInAllMode = selectedCats.has('all');
 
     let visibleCount = 0;
@@ -3249,12 +3229,9 @@ function renderItemsTable(market) {
         if (filter === 'ok' && status.level !== 'ok') return '';
         if (filter === 'alert' && status.level === 'ok') return '';
         // Apply category filter — composes with status filter (AND).
-        // Item category key matches the same scheme used by the filter bar:
-        // numeric category_id as string, or '__none' for unresolved items.
-        const itemCatKey = item.categoryId == null ? '__none' : String(item.categoryId);
-        if (catFilterInAllMode) {
-            if (excludedCats.has(itemCatKey)) return '';
-        } else {
+        // Unresolved items use '__none' as their key to match the filter bar.
+        if (!catFilterInAllMode) {
+            const itemCatKey = item.categoryId == null ? '__none' : String(item.categoryId);
             if (!selectedCats.has(itemCatKey)) return '';
         }
         visibleCount++;
@@ -3376,7 +3353,7 @@ function renderItemsTable(market) {
         <tbody>${rows}</tbody>
     </table>
     </div>
-    ${(filter !== 'all' || !catFilterInAllMode || excludedCats.size > 0) && visibleCount < market.items.length
+    ${(filter !== 'all' || !catFilterInAllMode) && visibleCount < market.items.length
         ? `<div class="filter-note">Filter active — showing ${visibleCount} of ${market.items.length} items</div>`
         : ''}
     ${shouldScroll ? `<div class="filter-note" style="margin-top:4px;">Scrollable — ${market.items.length} items (scroll within table)</div>` : ''}
@@ -3544,57 +3521,39 @@ function bindMarketCardEvents() {
             render();
         });
     });
-    /* ── Per-station category filter — left-click and right-click ──
-       Filter state is in-memory only (not persisted via save()) so it
-       resets on reload, matching the arb scanner's behavior. We still
-       call render() to repaint the table with the new filter applied. */
+    /* ── Per-station category filter — multi-select on left-click ──
+       ALL pill: click to clear back to "show everything".
+       Category pill: click to toggle it in/out of the selected set. Multiple
+       categories can be selected at once, and rows in any selected category
+       remain visible. Deselecting the last active category auto-snaps back
+       to ALL mode so we never present a blank table. State is in-memory only
+       (not persisted via save()); it resets on page reload. */
     document.querySelectorAll('[data-cat-filter]').forEach(btn => {
         const marketId = btn.getAttribute('data-cat-filter');
         const key = btn.getAttribute('data-cat-key');
-        // Left-click: include-only mode for this category (or ALL to reset).
         btn.addEventListener('click', () => {
             const market = state.markets.find(m => m.id === marketId);
             if (!market) return;
             if (!(market._selectedCats instanceof Set)) market._selectedCats = new Set(['all']);
-            if (!(market._excludedCats instanceof Set)) market._excludedCats = new Set();
+
             if (key === 'all') {
-                // Reset to show everything. Also clear exclusions so a fresh ALL
-                // mode doesn't inherit stale ✕ marks from before.
+                // Explicit reset to ALL mode
                 market._selectedCats = new Set(['all']);
-                market._excludedCats = new Set();
             } else {
-                // Specific category → include-only. Clear exclusions too; they
-                // only make sense in ALL mode.
-                market._selectedCats = new Set([key]);
-                market._excludedCats = new Set();
+                const sel = market._selectedCats;
+                if (sel.has('all')) {
+                    // Coming from ALL → start a fresh specific-category selection
+                    market._selectedCats = new Set([key]);
+                } else if (sel.has(key)) {
+                    // Already selected → toggle it off. If it was the last one,
+                    // snap back to ALL instead of leaving an empty selection.
+                    sel.delete(key);
+                    if (sel.size === 0) market._selectedCats = new Set(['all']);
+                } else {
+                    // Add to the existing selection (multi-select)
+                    sel.add(key);
+                }
             }
-            render();
-        });
-        // Right-click: exclude this category (only in ALL mode). On a
-        // specific-category selection, right-click is a no-op with a small
-        // visual nudge so users discover they need to return to ALL first.
-        btn.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            if (key === 'all') return; // Can't exclude "all" itself
-            const market = state.markets.find(m => m.id === marketId);
-            if (!market) return;
-            if (!(market._selectedCats instanceof Set)) market._selectedCats = new Set(['all']);
-            if (!(market._excludedCats instanceof Set)) market._excludedCats = new Set();
-            const inAllMode = market._selectedCats.has('all');
-            if (!inAllMode) {
-                // Quick shake animation to hint at the ALL-mode requirement
-                btn.animate(
-                    [{ transform: 'translateX(0)' },
-                     { transform: 'translateX(-3px)' },
-                     { transform: 'translateX(3px)' },
-                     { transform: 'translateX(0)' }],
-                    { duration: 200 }
-                );
-                return;
-            }
-            // Toggle excluded state
-            if (market._excludedCats.has(key)) market._excludedCats.delete(key);
-            else market._excludedCats.add(key);
             render();
         });
     });
