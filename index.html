@@ -489,13 +489,15 @@
     th:last-child, td:last-child {
         border-right: none;
     }
-    /* Thicker group separators between logical column sections:
-       Col 5 = after Sell Days (end of sell block)
-       Col 9 = after Buy Avg (end of buy block)
-       Col 13 = after Tar Days (end of threshold block) */
-    th:nth-child(6), td:nth-child(6),
-    th:nth-child(10), td:nth-child(10),
-    th:nth-child(14), td:nth-child(14) {
+    /* Thicker group separators between logical column sections.
+       Column layout after the Category-column/Floor-Ceiling-hide refactor:
+         1 lock · 2 Item · 3 Category · 4-6 sell block · 7-10 averages+buy
+         · 11-12 thresholds · 13 status · 14 remove
+       Borders go BEFORE cols 4, 7, 11, 13 so each block gets its own stripe. */
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(7), td:nth-child(7),
+    th:nth-child(11), td:nth-child(11),
+    th:nth-child(13), td:nth-child(13) {
         border-left: 2px solid var(--border-hot);
     }
     /* Item name cell gets sans font, not mono */
@@ -565,6 +567,45 @@
         text-align: center;
         white-space: nowrap;
     }
+    /* Category column — small pill next to each item showing its broad
+       item category (Module, Material, Ship, etc.). Color families keep
+       the stripe scannable: fittings cyan, raw/tradables amber, consumables
+       green, intangibles purple, structures red, unknown muted. The
+       Category column itself centers the pill and keeps a tight width
+       so it doesn't push the price columns around. */
+    td.cat-cell {
+        text-align: center;
+        white-space: nowrap;
+        padding: 4px 8px;
+    }
+    .cat-pill {
+        display: inline-block;
+        padding: 1px 8px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1.5;
+        letter-spacing: 0.3px;
+        border: 1px solid;
+        border-radius: 10px;
+        background: var(--bg-0);
+        white-space: nowrap;
+    }
+    .cat-pill-cyan   { color: var(--cyan);   border-color: rgba(74, 214, 255, 0.45); background: rgba(74, 214, 255, 0.08); }
+    .cat-pill-amber  { color: var(--amber);  border-color: rgba(255, 166, 43, 0.45); background: rgba(255, 166, 43, 0.08); }
+    .cat-pill-green  { color: var(--green);  border-color: rgba(74, 222, 128, 0.45); background: rgba(74, 222, 128, 0.08); }
+    .cat-pill-purple { color: var(--purple); border-color: rgba(167, 139, 250, 0.45); background: rgba(167, 139, 250, 0.08); }
+    .cat-pill-red    { color: var(--red);    border-color: rgba(248, 113, 113, 0.45); background: rgba(248, 113, 113, 0.08); }
+    .cat-pill-muted  { color: var(--text-2); border-color: var(--border); background: var(--bg-0); }
+    /* Placeholder dash for rows whose category hasn't been fetched yet —
+       deliberately subtle so users understand it's a pending value, not
+       a missing one. Next Refresh will populate it. */
+    .cat-pending {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-2);
+        opacity: 0.5;
+    }
     td.status-cell.status-ok { color: var(--green); }
     td.status-cell.status-restock {
         color: #ffe1e1;
@@ -594,7 +635,7 @@
     }
     .add-item-row {
         display: grid;
-        grid-template-columns: 2fr repeat(4, 1fr) auto;
+        grid-template-columns: 2fr repeat(2, 1fr) auto;
         gap: 8px;
         align-items: end;
         padding: 10px;
@@ -1465,17 +1506,18 @@
             <ol>
                 <li><b>Add a market.</b> In the top section, type a system name (autocomplete will help) and click <span class="help-btn">Find Markets</span>. Pick the station or structure you want to track. Player structures (Upwell/citadels) require EVE SSO login.</li>
                 <li><b>Add items to watch.</b> Each market card has an <b>Add Single Item</b> field with autocomplete — start typing and a dropdown appears showing matching items with their EVE icons. Click or use arrow keys + Enter to select. Or use <b>Bulk Add</b> to paste an EVE multibuy list or a Copy Items payload from another station.</li>
-                <li><b>Set thresholds.</b> Each item row has four thresholds you can toggle: Min Stock, Floor, Ceiling, and Target Days of supply. Toggle on with the green ✓, type a value, and the item turns into an alert if the live market breaks the rule.</li>
+                <li><b>Set thresholds.</b> Each item row has two thresholds you can toggle directly on the row: <b>Min Stock</b> (minimum units you want on hand) and <b>Target Days</b> of supply. Toggle on with the green ✓, type a value, and the item turns into an alert if the live market breaks the rule. Floor and Ceiling price thresholds still exist in the data model and fire alerts — their inline columns are hidden by default to keep the table focused on stock health.</li>
                 <li><b>Click <span class="help-btn">Refresh All</span>.</b> Fetches the latest orders and market history. Safe to click often.</li>
             </ol>
 
             <h3>Reading the item table</h3>
-            <p>Each item row has 15 columns broken into logical groups separated by thick vertical lines:</p>
+            <p>Each item row has 14 columns broken into logical groups separated by thick vertical lines:</p>
             <ul>
+                <li><b>Category</b> — a small colored pill showing the item's broad family (Module, Material, Ship, Drone, Blueprint, etc.). Color-coded by family: cyan for fittings (ship/modules/rigs/drones), amber for raw and tradable goods (minerals/PI/ores/commodities), green for consumables (charges/implants/boosters), purple for intangibles (blueprints/skills/SKINs/decryptors), red for structures and deployables. Unresolved items show a muted dash until the next Refresh populates them.</li>
                 <li><b>Sell Price / Sell Volume / Sell Days</b> — the cheapest sell order, total quantity offered at this location, and how many days of supply that represents based on average regional daily trade volume.</li>
                 <li><b>Sell Avg</b> — average daily traded volume over your chosen window (1d / 7d / 30d — toggle at the top right of the page).</li>
                 <li><b>Buy Price / Buy Volume / Buy Avg</b> — highest buy order, total quantity buyers want to purchase, same regional average. Note: Sell Avg and Buy Avg show the same number — ESI doesn't separate buy/sell trading volume in historical data.</li>
-                <li><b>Min Stock / Floor / Ceiling / Tar Days</b> — your four threshold toggles and target values.</li>
+                <li><b>Min Stock / Tar Days</b> — your two inline threshold toggles and target values. Floor and Ceiling thresholds still exist and still fire alerts, but their inline columns are hidden.</li>
                 <li><b>Status</b> — shows <span class="help-status-ok">OK</span> if all your enabled thresholds are met, or <span class="help-status-restock">Restock</span> if anything breaks. Hover for the exact reason.</li>
             </ul>
 
@@ -1484,7 +1526,7 @@
                 <li><b>Faint red row tint</b> — the item has at least one broken threshold (broad "needs attention" signal).</li>
                 <li><b>Bright red cell</b> — the specific metric that triggered the alert. E.g., if Min Stock is set to 500 and Sell Volume is 120, the Sell Volume cell is highlighted red.</li>
                 <li><b>Faint yellow row tint</b> — approaching a threshold but not yet in violation ("warning").</li>
-                <li><b>Row hover</b> — amber glow to help track rows across 15 columns.</li>
+                <li><b>Row hover</b> — amber glow to help track rows across all 14 columns.</li>
                 <li><b>Active Alerts banner</b> — appears at the very top of the page as soon as any item is in alert state. Lists every breaching item across every station with the exact reason. Hidden when all thresholds are met.</li>
             </ul>
 
@@ -1493,7 +1535,7 @@
             <ul>
                 <li><b>Quantity math</b> — for each alerting item, the tool computes <i>max(Min Stock − Sell Volume, Target Days × daily volume − Sell Volume)</i>. That way a single order refills the shortfall for <b>both</b> thresholds, not just the tighter one.</li>
                 <li><b>Cross-station aggregation</b> — if the same item is alerting at multiple stations, the quantities are summed into one line. The output is a single deduplicated shopping list, not a per-station one.</li>
-                <li><b>Price-only alerts are skipped</b> — Floor and Ceiling breaches are market pricing problems, not stock shortfalls, so they don't appear in the restock list. If every active alert is price-only, the button will tell you there's nothing to buy instead of copying an empty list.</li>
+                <li><b>Price-only alerts are skipped</b> — Floor and Ceiling threshold breaches are market pricing problems, not stock shortfalls, so they don't appear in the restock list. If every active alert is price-only, the button will tell you there's nothing to buy instead of copying an empty list. (Price thresholds still fire alerts even though their inline columns are hidden in the table.)</li>
                 <li><b>Success confirmation</b> — a green ✓ flashes over the button after copy, and an italic rainbow "Kai's Button" signature fades in below it for about 10 seconds.</li>
                 <li><b>Clipboard fallback</b> — if your browser blocks the modern clipboard API (usually non-HTTPS contexts), the tool falls back to a legacy copy method automatically.</li>
             </ul>
@@ -1535,15 +1577,26 @@
             <p><b>Auto-scroll on interaction:</b> when you click anywhere inside a market's items table, the page smoothly scrolls so that market's header is at the top of your screen. If you're already there, no scroll happens. Interacting with another market snaps to that one instead.</p>
 
             <h3>Column organization</h3>
-            <p>The 15 columns are grouped into logical blocks separated by thicker vertical lines:</p>
+            <p>The 14 columns are grouped into logical blocks separated by thicker vertical lines:</p>
             <ul>
-                <li><b>Block 1 — Lock and Item</b> — row controls and item name</li>
+                <li><b>Block 1 — Lock, Item, and Category</b> — row controls, item name, and category pill</li>
                 <li><b>Block 2 — Sell side</b> — Sell Price, Sell Volume, Sell Days (runway)</li>
                 <li><b>Block 3 — Averages and Buy side</b> — Sell Avg, Buy Price, Buy Volume, Buy Avg</li>
-                <li><b>Block 4 — Thresholds</b> — Min Stock, Floor, Ceiling, Tar Days</li>
+                <li><b>Block 4 — Thresholds</b> — Min Stock, Tar Days (Floor and Ceiling are hidden but still enforced)</li>
                 <li><b>Block 5 — Status and Remove</b> — alert state and delete button</li>
             </ul>
-            <p>Zebra striping on OK rows and an amber hover highlight make it easy to track a single row across all 15 columns.</p>
+            <p>Zebra striping on OK rows and an amber hover highlight make it easy to track a single row across all 14 columns.</p>
+
+            <h3>Category column</h3>
+            <p>Each item gets a color-coded category pill showing its broad family. The pill is fetched from EVE's universe API the first time you Refresh a market containing that item, then cached forever in your browser — so subsequent scans are instant. The categories mirror the Arb Scanner tool's palette so the two apps agree on what a "Module" or "Asteroid" or "SKIN" looks like:</p>
+            <ul>
+                <li><span class="cat-pill cat-pill-cyan">Ship</span> <span class="cat-pill cat-pill-cyan">Module</span> <span class="cat-pill cat-pill-cyan">Drone</span> <span class="cat-pill cat-pill-cyan">Rig</span> — <b>Fittings</b>: what you fly and what you bolt to it.</li>
+                <li><span class="cat-pill cat-pill-amber">Material</span> <span class="cat-pill cat-pill-amber">Asteroid</span> <span class="cat-pill cat-pill-amber">Commodity</span> <span class="cat-pill cat-pill-amber">PI Resource</span> — <b>Raw &amp; tradable</b>: minerals, ores, commodities, PI tiers.</li>
+                <li><span class="cat-pill cat-pill-green">Charge</span> <span class="cat-pill cat-pill-green">Implant</span> — <b>Consumables</b>: ammo, boosters, implants.</li>
+                <li><span class="cat-pill cat-pill-purple">Blueprint</span> <span class="cat-pill cat-pill-purple">Skill</span> <span class="cat-pill cat-pill-purple">SKIN</span> <span class="cat-pill cat-pill-purple">Decryptor</span> — <b>Intangibles &amp; production</b>: BPOs/BPCs, skillbooks, SKINs, invention decryptors.</li>
+                <li><span class="cat-pill cat-pill-red">Structure</span> <span class="cat-pill cat-pill-red">Deployable</span> <span class="cat-pill cat-pill-red">Str. Module</span> — <b>Structures</b>: citadels, engineering complexes, deployables, and their rigs/modules.</li>
+            </ul>
+            <p>Sort the Category column to group every module, every blueprint, or every SKIN in one block — handy when you want to sanity-check all fittings for a doctrine or all blueprints in one inventory.</p>
 
             <h3>Volume window</h3>
             <p>Top-right of the page has a <b>1d / 7d / 30d</b> toggle that controls which average is used for <b>Sell Days</b> and <b>Sell Avg / Buy Avg</b>. Short window reacts faster to demand spikes; long window smooths out noise. 7d is usually the right default.</p>
@@ -1586,6 +1639,7 @@
 const STORAGE_KEY = 'eveMarketMonitor.v1';
 const SYSTEMS_CACHE_KEY = 'eveMarketMonitor.systemsCache.v1';
 const ITEMS_CACHE_KEY = 'eveMarketMonitor.itemsCache.v1';
+const TYPE_CATS_CACHE_KEY = 'eveMarketMonitor.typeCats.v1'; // typeId → categoryId lookup, built up via /universe/types→groups
 const SYSTEMS_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days — system list is ultra-stable
 const STRUCTURE_NAMES_KEY = 'eveMarketMonitor.structureNames.v1';
 const SSO_AUTH_KEY = 'eveMarketMonitor.ssoAuth.v1';
@@ -2546,6 +2600,24 @@ async function refreshMarket(marketId) {
                 }
             }
         }
+        // Resolve categories for any items that don't have one yet. This is
+        // what makes the Category column populate and persist across sessions.
+        // Cache hits (TYPE_CAT_CACHE already has the entry from a prior refresh
+        // or a prior session via localStorage) fall through immediately; misses
+        // go to ESI with bounded concurrency inside resolveTypeCategories.
+        const needCat = market.items.filter(i => i.categoryId == null).map(i => i.typeId);
+        if (needCat.length) {
+            await resolveTypeCategories(needCat);
+        }
+        // Copy resolved categoryIds onto each item so they persist in state
+        // (the in-memory TYPE_CAT_CACHE also persists separately in localStorage,
+        // but storing per-item makes the data available immediately on page
+        // load before the cache is rehydrated).
+        for (const item of market.items) {
+            if (item.categoryId == null && TYPE_CAT_CACHE[item.typeId] != null) {
+                item.categoryId = TYPE_CAT_CACHE[item.typeId];
+            }
+        }
         market.lastFetched = Date.now();
         save();
         render();
@@ -2766,6 +2838,17 @@ function escapeHtml(s) {
 }
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
+// Render the category pill for an item row. Falls back to a muted dash
+// when the category hasn't been resolved yet — that'll populate on the
+// next Refresh. Keeps the column width consistent while resolution is
+// pending.
+function catPillHtml(categoryId) {
+    const label = catLabel(categoryId);
+    if (!label) return `<span class="cat-pending" title="Category not yet resolved — click Refresh to populate">—</span>`;
+    const cls = catPillClass(categoryId);
+    return `<span class="cat-pill ${cls}">${escapeHtml(label)}</span>`;
+}
+
 /* ---------------- Rendering ---------------- */
 function render() {
     const list = document.getElementById('marketsList');
@@ -2944,6 +3027,10 @@ function renderItemsTable(market) {
         const getValue = (r) => {
             switch (sortKey) {
                 case 'name': return r.item.typeName.toLowerCase();
+                case 'category':
+                    // Sort by label alphabetically. Unresolved (null) items sort last
+                    // via the null handling below.
+                    return catLabel(r.item.categoryId);
                 case 'sellPrice': return r.item.lowestSell;
                 case 'sellVol': return r.item.totalSellQty;
                 case 'sellDays': return r.sellDaysVal;
@@ -3050,6 +3137,7 @@ function renderItemsTable(market) {
         <tr class="${status.level} ${locked ? 'row-locked' : ''}">
             <td>${lockBtn}</td>
             <td class="item-name copyable" data-copy-text="${escapeHtml(item.typeName)}" title="Click to copy item name">${escapeHtml(item.typeName)}</td>
+            <td class="cat-cell">${catPillHtml(item.categoryId)}</td>
             <td class="num ${sellPriceClass}">${sellPrice}</td>
             <td class="num ${sellVolClass}">${sellVol}</td>
             <td class="num ${sellDaysClass}">${sellDays}</td>
@@ -3058,8 +3146,6 @@ function renderItemsTable(market) {
             <td class="num">${buyVol}</td>
             <td class="num">${buyAvg}</td>
             ${thresholdCell('minStock', item.minStock, '80px')}
-            ${thresholdCell('priceFloor', item.priceFloor, '90px')}
-            ${thresholdCell('priceCeiling', item.priceCeiling, '90px')}
             ${thresholdCell('daysSupply', item.daysSupply, '60px')}
             <td class="status-cell ${statusClass}" title="${statusTooltip}">${statusLabel}</td>
             <td>${removeBtn}</td>
@@ -3083,6 +3169,7 @@ function renderItemsTable(market) {
             <tr>
                 <th></th>
                 ${sortableTh('name', 'Item')}
+                ${sortableTh('category', 'Category')}
                 ${sortableTh('sellPrice', 'Sell Price', true)}
                 ${sortableTh('sellVol', 'Sell Volume', true)}
                 ${sortableTh('sellDays', 'Sell Days', true)}
@@ -3091,8 +3178,6 @@ function renderItemsTable(market) {
                 ${sortableTh('buyVol', 'Buy Volume', true)}
                 ${sortableTh('buyAvg', 'Buy Avg', true)}
                 ${sortableTh('minStock', 'Min Stock')}
-                ${sortableTh('priceFloor', 'Floor')}
-                ${sortableTh('priceCeiling', 'Ceiling')}
                 ${sortableTh('daysSupply', 'Tar Days')}
                 ${sortableTh('status', 'Status')}
                 <th></th>
@@ -3120,12 +3205,6 @@ function renderAddItemForm(market) {
         </div>
         <div>
             <input type="text" inputmode="decimal" placeholder="Min Stock" data-add-field="minStock" data-numeric-input>
-        </div>
-        <div>
-            <input type="text" inputmode="decimal" placeholder="Floor" data-add-field="priceFloor" data-numeric-input>
-        </div>
-        <div>
-            <input type="text" inputmode="decimal" placeholder="Ceiling" data-add-field="priceCeiling" data-numeric-input>
         </div>
         <div>
             <input type="text" inputmode="decimal" placeholder="Tgt Days" data-add-field="daysSupply" data-numeric-input>
@@ -3658,6 +3737,178 @@ async function loadItemsIndex() {
     }
 }
 
+/* ---------------- Category resolution (typeId → categoryId) ----------------
+ * ESI's /universe/types/{id}/ returns a group_id, not a category_id directly.
+ * To get the category we follow through /universe/groups/{group_id}/ which
+ * returns the category_id. Both endpoints cache aggressively at the ESI edge
+ * (~1 hour), and we persist results forever in localStorage because types
+ * and groups essentially never change categories.
+ *
+ * Once an item's category is in TYPE_CAT_CACHE we never ask ESI again. The
+ * resolver batches requests across a list of typeIds with modest concurrency
+ * to stay polite, and is safe to call with an already-resolved list (fast
+ * cache-hit path returns immediately).
+ *
+ * Mirrors the pattern used by the Arb Scanner tool so the two products share
+ * the same mental model for category lookup.
+ */
+const TYPE_CAT_CACHE = {};   // typeId (number) → categoryId (number). Hydrated from localStorage at boot.
+const GROUP_CAT_CACHE = {};  // groupId (number) → categoryId (number). Transient — rebuilds per session; not worth persisting separately.
+
+function loadTypeCatCache() {
+    try {
+        const raw = localStorage.getItem(TYPE_CATS_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+            // Stored as { [typeId]: categoryId } — copy into the in-memory map
+            for (const [tid, cat] of Object.entries(parsed)) {
+                const n = Number(tid);
+                if (!Number.isNaN(n) && typeof cat === 'number') TYPE_CAT_CACHE[n] = cat;
+            }
+        }
+    } catch (e) {
+        console.warn('Could not read type-category cache', e);
+    }
+}
+
+// Debounced persistence — the resolver can add dozens of entries during a
+// single Refresh All pass; we don't want to serialize the whole map after
+// every single addition. 400ms after the last write, we flush.
+let _typeCatSaveTimer = null;
+function persistTypeCatCache() {
+    if (_typeCatSaveTimer) clearTimeout(_typeCatSaveTimer);
+    _typeCatSaveTimer = setTimeout(() => {
+        try {
+            localStorage.setItem(TYPE_CATS_CACHE_KEY, JSON.stringify(TYPE_CAT_CACHE));
+        } catch (e) {
+            console.warn('Could not persist type-category cache (quota?)', e);
+        }
+        _typeCatSaveTimer = null;
+    }, 400);
+}
+
+// Resolve one typeId → categoryId. Uses the type→group→category chain.
+// Returns a number on success, null on failure. Caches aggressively.
+async function resolveOneTypeCategory(typeId) {
+    if (TYPE_CAT_CACHE[typeId] != null) return TYPE_CAT_CACHE[typeId];
+    try {
+        const { data: typeInfo } = await esiGet(`/universe/types/${typeId}/`);
+        const groupId = typeInfo?.group_id;
+        if (groupId == null) return null;
+        let categoryId = GROUP_CAT_CACHE[groupId];
+        if (categoryId == null) {
+            const { data: groupInfo } = await esiGet(`/universe/groups/${groupId}/`);
+            categoryId = groupInfo?.category_id;
+            if (categoryId == null) return null;
+            GROUP_CAT_CACHE[groupId] = categoryId;
+        }
+        TYPE_CAT_CACHE[typeId] = categoryId;
+        persistTypeCatCache();
+        return categoryId;
+    } catch (e) {
+        // Network or 5xx — don't poison the cache; we'll try again next Refresh
+        return null;
+    }
+}
+
+// Resolve categories for a list of typeIds concurrently. Cache hits fall
+// through immediately; misses run through a bounded worker pool so we don't
+// flood ESI with 200 requests in parallel. Returns after every missing
+// category has been either resolved or permanently failed.
+async function resolveTypeCategories(typeIds) {
+    const missing = typeIds.filter(t => TYPE_CAT_CACHE[t] == null);
+    if (!missing.length) return;
+    const CONCURRENCY = 6; // polite — most items will be cache hits anyway
+    let idx = 0;
+    async function worker() {
+        while (idx < missing.length) {
+            const tid = missing[idx++];
+            await resolveOneTypeCategory(tid);
+        }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+}
+
+/* ---------------- Category labels & styling (inline pills) ----------------
+ * The arb scanner tool establishes these mappings; we mirror them so the
+ * two tools agree on how to name and color every category a user might see.
+ * CAT_LABEL_MAP is the single source of truth for the pill text, and
+ * CAT_PILL_STYLE maps each category to one of a handful of color families
+ * (cyan for modules/ships, amber for materials/commodities, green for
+ * consumables, purple for blueprints/skins, muted for everything else).
+ * This keeps the pill stripe on the items table visually coherent — users
+ * can scan it and see module-vs-material at a glance without reading text.
+ */
+const CAT_LABEL_MAP = {
+    2:    'Celestial',
+    4:    'Material',
+    5:    'Accessory',
+    6:    'Ship',
+    7:    'Module',
+    8:    'Charge',
+    9:    'Blueprint',
+    11:   'Implant',
+    16:   'Skill',
+    17:   'Commodity',
+    18:   'Drone',
+    20:   'Implant',      // legacy alias — boosters got folded in historically
+    22:   'Deployable',
+    23:   'Structure',
+    24:   'Reaction',     // pre-Onslaught category
+    25:   'Asteroid',     // raw + compressed ores
+    30:   'Apparel',
+    32:   'Subsystem',
+    34:   'Str. Module',
+    35:   'Decryptor',
+    39:   'Infrastructure',
+    40:   'Sov. Struct',
+    41:   'PI Resource',
+    42:   'Orbital',
+    43:   'PI Industry',
+    46:   'Placeable',
+    49:   'Planet',
+    63:   'Relic',
+    65:   'Reaction',
+    66:   'Str. Module',
+    87:   'Fighter',
+    91:   'SKIN',
+    157:  'Rig',
+    350001:'Infantry',
+    2100: 'Expert Sys.',
+    2118: 'Special Ed.',
+};
+function catLabel(categoryId) {
+    if (categoryId == null) return null;
+    return CAT_LABEL_MAP[categoryId] || `Cat ${categoryId}`;
+}
+
+// Which color family should this category's pill use? Keep to a small palette
+// (5-ish families) so rows scan cleanly instead of becoming a rainbow of every
+// category having its own hue.
+function catPillClass(categoryId) {
+    if (categoryId == null) return 'cat-pill-muted';
+    switch (categoryId) {
+        // Fittings — the ship itself and things you bolt to it
+        case 6: case 7: case 18: case 32: case 87: case 157:
+            return 'cat-pill-cyan';
+        // Raw stuff & tradables — minerals, PI, ores, commodities
+        case 4: case 17: case 25: case 41: case 43:
+            return 'cat-pill-amber';
+        // Consumables the pilot/ship uses up
+        case 8: case 11: case 20:
+            return 'cat-pill-green';
+        // Intangibles / production — blueprints, skills, SKINs, decryptors, reactions
+        case 9: case 16: case 35: case 91: case 24: case 65: case 2100:
+            return 'cat-pill-purple';
+        // Structures / deployables / sovereignty
+        case 22: case 23: case 34: case 40: case 66:
+            return 'cat-pill-red';
+        default:
+            return 'cat-pill-muted';
+    }
+}
+
 function filterItems(query, limit = 20) {
     if (!itemsIndex) return [];
     const q = query.toLowerCase();
@@ -4016,6 +4267,10 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     const handled = await sso.handleCallback();
     // 2. One-time schema upgrade (flips stale false→true defaults)
     applyOneTimeSchemaUpgrade();
+    // Hydrate the type→category map from localStorage BEFORE the first render
+    // so items already have their Category pills filled in immediately (no
+    // flicker of "—" then pill-appear on the next tick).
+    loadTypeCatCache();
     // 3. Render UI (auth state may have just changed)
     updateAuthUI();
     updateVolWindowUI();
